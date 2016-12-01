@@ -1,0 +1,9 @@
+.idea
+*.pyc
+*L
+output/*
+*.pt
+*.kmodel
+tmp/*
+data/Cache/*
+nohup.out
