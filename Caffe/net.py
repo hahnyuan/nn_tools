@@ -158,7 +158,7 @@ class Net():
             datas.append(data)
         return datas
 
-class Caffe():
+class Model():
     def __init__(self,prototxt_dir,caffemode_dir):
         import caffe
         self.net=caffe.Net(prototxt_dir,caffemode_dir,caffe.TEST)
@@ -167,6 +167,7 @@ class Caffe():
         for i,layer in enumerate(self.net.layers):
             if layer_name == self.net._layer_names[i]:
                 return layer
+
     def fill_blobs(self,pb_net):
         """
         fill the caffe model blobs by a protobuffer type Net
