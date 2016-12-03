@@ -14,9 +14,11 @@ class Mnist():
                           os.path.join(dir, 't10k-labels-idx1-ubyte')]
 
     def train(self):
-        return self.read_images(self.train_dir[0])
+        #return the train dataset as a list [images,labels]
+        return self.read_images(self.train_dir[0]),self.read_labels(self.train_dir[1])
 
     def test(self):
+        #return the test dataset as a list [images,labels]
         return self.read_images(self.test_dir[0]),self.read_labels(self.test_dir[1])
 
     def read_labels(self, file_name):
