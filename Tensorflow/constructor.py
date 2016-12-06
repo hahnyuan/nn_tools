@@ -24,6 +24,24 @@ def in_shape(input):
     return input.get_shape().as_list()
 
 
+def to_categorical(y, nb_classes=None):
+    '''Convert class vector (integers from 0 to nb_classes) to binary class matrix, for use with categorical_crossentropy.
+
+    # Arguments
+        y: class vector to be converted into a matrix
+        nb_classes: total number of classes
+
+    # Returns
+        A binary matrix representation of the input.
+    '''
+    if not nb_classes:
+        nb_classes = np.max(y)+1
+    Y = np.zeros((len(y), nb_classes))
+    for i in range(len(y)):
+        Y[i, y[i]] = 1.
+    return Y
+
+
 # ===========Convolution=============
 
 def conv2d(name, input, numout, kernel_size, strides=(1, 1, 1, 1), padding='SAME'):
@@ -43,13 +61,15 @@ def conv3x3(name, input, numout):
 
 # ==========Fully Connected=========
 
-def fc(name,input,numout):
+def fc(name,input,numout,with_relu=1):
     input = tf.reshape(input,[-1,np.prod(in_shape(input)[1:])])
     in_channel = in_shape(input)[1]
     with tf.name_scope(name):
         W = weight_variable_norm([in_channel, numout])
         b = bias_variable_zero([numout])
         rst= tf.matmul(input,W)+b
+        if with_relu:
+            rst=tf.nn.relu(rst)
     return rst
 
 
@@ -65,3 +85,20 @@ def pool2x2(name, input):
     # poolinh with
     with tf.name_scope(name):
         return tf.nn.max_pool(input, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+# ===========Loss============
+
+def classific_loss(y,y_):
+    # the shape of y and y_ is [None,class_num]
+    # return cross_entropy loss
+    diff = tf.nn.softmax_cross_entropy_with_logits(y, y_)
+    cross_entropy = tf.reduce_mean(diff)
+    return cross_entropy
+
+# ===========Evaluate===========
+
+def classific_accurancy(y,y_):
+    # the shape of y and y_ is [None,class_num]
+    correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    return accuracy

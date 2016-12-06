@@ -4,7 +4,7 @@ import struct
 
 class Mnist():
     # read the raw mnist data
-    def __init__(self,dir):
+    def __init__(self,dir,only_test=0):
         # dir should include t10k-images-idx3-ubyte  t10k-labels-idx1-ubyte  train-images-idx3-ubyte  train-labels-idx1-ubyte
         # the data can be download at http://yann.lecun.com/exdb/mnist/
         self.dir=dir
@@ -12,14 +12,55 @@ class Mnist():
                         os.path.join(dir,'train-labels-idx1-ubyte')]
         self.test_dir = [os.path.join(dir, 't10k-images-idx3-ubyte'),
                           os.path.join(dir, 't10k-labels-idx1-ubyte')]
+        self.test_data=self.get_test_data()
+        if not only_test:
+            self.train_data=self.get_train_data()
+        self.ptest=0
+        self.ptrain=0
 
-    def train(self):
+    def norm(self,x):
+
+        data = x.reshape([-1, 28, 28, 1]).astype(np.float32)
+        data = (data - 167) / 167
+        return data
+
+    def get_train_data(self,norm=1):
         #return the train dataset as a list [images,labels]
-        return self.read_images(self.train_dir[0]),self.read_labels(self.train_dir[1])
+        data=self.read_images(self.train_dir[0])
+        if norm==1:
+            data=self.norm(data)
+        return [data,self.read_labels(self.train_dir[1])]
 
-    def test(self):
+    def get_test_data(self,norm=1):
         #return the test dataset as a list [images,labels]
-        return self.read_images(self.test_dir[0]),self.read_labels(self.test_dir[1])
+        data=self.read_images(self.test_dir[0])
+        if norm==1:
+            data=self.norm(data)
+        return [data,self.read_labels(self.test_dir[1])]
+
+    def shuffle(self,x):
+        idx=np.arange(len(x[0]))
+        np.random.shuffle(idx)
+        for i,xi in enumerate(x):
+            x[i]=xi[idx]
+        return x
+
+    def _batch(self,data,p,batch_size):
+        return [i[p-batch_size:p] for i in data]
+
+    def get_test_batch(self,batch_size):
+        if self.ptest+batch_size>=len(self.test_data):
+            self.ptest=0
+            self.test_data=self.shuffle(self.test_data)
+        self.ptest+=batch_size
+        return self._batch(self.test_data,self.ptest,batch_size)
+
+    def get_train_batch(self, batch_size):
+        if self.ptrain + batch_size >= len(self.train_data):
+            self.ptrain = 0
+            self.train_data=self.shuffle(self.train_data)
+        self.ptrain += batch_size
+        return self._batch(self.train_data,self.ptrain,batch_size)
 
     def read_labels(self, file_name):
         """
