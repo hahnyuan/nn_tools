@@ -1,10 +1,11 @@
 import numpy as np
 import os
 import struct
+import base_datasets
 
-class Mnist():
+class Mnist(base_datasets.BaseDataset):
     # read the raw mnist data
-    def __init__(self,dir,only_test=0):
+    def __init__(self, dir, only_test=0):
         # dir should include t10k-images-idx3-ubyte  t10k-labels-idx1-ubyte  train-images-idx3-ubyte  train-labels-idx1-ubyte
         # the data can be download at http://yann.lecun.com/exdb/mnist/
         self.dir=dir
@@ -12,6 +13,7 @@ class Mnist():
                         os.path.join(dir,'train-labels-idx1-ubyte')]
         self.test_dir = [os.path.join(dir, 't10k-images-idx3-ubyte'),
                           os.path.join(dir, 't10k-labels-idx1-ubyte')]
+        base_datasets.BaseDataset.__init__(self)
         self.test_data=self.get_test_data()
         if not only_test:
             self.train_data=self.get_train_data()
@@ -19,7 +21,6 @@ class Mnist():
         self.ptrain=0
 
     def norm(self,x):
-
         data = x.reshape([-1, 28, 28, 1]).astype(np.float32)
         data = (data - 167) / 167
         return data
