@@ -54,10 +54,20 @@ def conv2d(name, input, numout, kernel_size, strides=(1, 1, 1, 1), padding='SAME
         conv = tf.nn.bias_add(conv, b)
     return conv
 
+def conv2d_with_weight(name,input,weights,biases,strides=(1,1,1,1),padding='SAME'):
+    # the standard conv2d generator with weights and biases given
+    in_channel = in_shape(input)[3]
+    with tf.name_scope(name):
+        W = tf.Variable(weights)
+        b = tf.Variable(biases)
+        conv = tf.nn.conv2d(input, W, strides=strides, padding=padding)
+        conv = tf.nn.bias_add(conv, b)
+    return conv
 
 def conv3x3(name, input, numout):
     # the standard 3x3 conv2d used in many situation
     return conv2d(name,input,numout,3)
+
 
 # ==========Fully Connected=========
 
@@ -75,7 +85,7 @@ def fc(name,input,numout,with_relu=1):
 
 # ===========Pooling=============
 
-def max_pool2d(input,ksize=(1,2,2,1),strides=(1,2,2,1)):
+def max_pool2d(name,input,ksize=(1,2,2,1),strides=(1,2,2,1)):
     # the standard pooling
     return
     tf.nn.max_pool(input, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
@@ -85,6 +95,18 @@ def pool2x2(name, input):
     # poolinh with
     with tf.name_scope(name):
         return tf.nn.max_pool(input, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+
+# ===========Activation=====
+
+def prule(name,input):
+    with tf.name_scope(name):
+        pos=tf.nn.relu(input,'pos')
+        shape=in_shape(input)[-1]
+        w=weight_variable_norm([shape])
+        neg=tf.nn.relu(-input,'neg')*w
+        rst=pos+neg
+    return rst
 
 # ===========Loss============
 
