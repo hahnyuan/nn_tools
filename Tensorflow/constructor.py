@@ -9,8 +9,10 @@ import tensorflow as tf
 def weight_variable_norm(shape):
     #   generate a variable with the name of 'bias'.
     #  reuturn a Variable whose shape is 'shape'
-    initial = tf.truncated_normal(shape, stddev=0.1, name='bias')
-    return tf.Variable(initial)
+    initial = tf.truncated_normal(shape, stddev=0.1, name='weight')
+    weight=tf.Variable(initial)
+    add_weight_l2_regularation(weight)
+    return weight
 
 
 def bias_variable_zero(shape):
@@ -116,6 +118,15 @@ def classific_loss(y,y_):
     diff = tf.nn.softmax_cross_entropy_with_logits(y, y_)
     cross_entropy = tf.reduce_mean(diff)
     return cross_entropy
+
+l2_weight_loss=[]
+def add_weight_l2_regularation(weights):
+    l2_weight_loss.append(tf.nn.l2_loss(weights))
+
+def add_l2_loss(loss,factor=0.001):
+    for i in l2_weight_loss:
+        loss+=i*factor
+    return loss
 
 # ===========Evaluate===========
 
