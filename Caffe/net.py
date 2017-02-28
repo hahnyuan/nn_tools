@@ -1,4 +1,4 @@
-import Caffe.caffe_pb2 as pb
+import nn_tools.Caffe.caffe_pb2 as pb
 import google.protobuf.text_format as text_format
 import numpy as np
 
@@ -156,6 +156,13 @@ class Net():
             data=np.array(blob.data).reshape(shape)
             datas.append(data)
         return datas
+
+    def set_layer_data(self,layer_name,datas):
+        # datas is a list of [weights,bias]
+        layer=self.layer(layer_name)
+        for blob,data in zip(layer.blobs,datas):
+            blob.data[:]=data.flatten()
+            pass
 
 class Model():
     def __init__(self,prototxt_dir,caffemode_dir):
