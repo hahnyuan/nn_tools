@@ -16,6 +16,7 @@ class Base(object):
         self.compare=0
         self.flops=0
         self.out=None
+        self.layer_info=None
         box.append(self)
 
     def __call__(self, *args, **kwargs):
@@ -24,6 +25,10 @@ class Base(object):
         if key=='out':
             self.blob_size=np.prod(value)
         return object.__setattr__(self, key,value)
+    def __getattribute__(self, item):
+        if item=='flops':
+            self.flops=self.pow+self.add+self.dot+self.compare
+        return object.__getattribute__(self,item)
 
 
 class Activation(Base):
@@ -56,6 +61,7 @@ class Sliding(Base):
         self.kernel_size=kernel_size
         self.num_out=num_out
         self.stride=stride
+        self.layer_info='kernel=%dx%d,stride=%d,pad=%d'%(kernel_size,kernel_size,stride,pad)
         self.pad=pad
         #calc out
         if not ceil:
@@ -67,10 +73,11 @@ class Sliding(Base):
         self.out=np.array([out_w,out_h,num_out])
 
 class Conv(Sliding):
-    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,activation=None,name='conv',ceil=False):
+    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,activation='relu',name='conv',ceil=False):
         if isinstance(input,Base):
             input=input()
         Sliding.__init__(self,input,kernel_size,num_out,stride,pad,name=name,ceil=ceil)
+        self.layer_info+=',num_out=%d'%(num_out)
         self.dot = self.out[0] * self.out[1] * self.input[2] * self.kernel_size ** 2 * self.num_out
         self.add = self.dot
         self.weight_size=self.kernel_size**2*num_out*input[2]
@@ -79,15 +86,17 @@ class Conv(Sliding):
 conv=Conv
 
 class Pool(Sliding):
-    def __init__(self,input,kernel_size,stride=1,pad=0,name='pool',ceil=False):
+    def __init__(self,input,kernel_size,stride=1,pad=0,name='pool',pool_type='max',ceil=False):
         if isinstance(input,Base):
             input=input()
         Sliding.__init__(self,input,kernel_size,input[2],stride,pad,name=name,ceil=ceil)
+        self.pool_type=pool_type
+        self.layer_info+=',type=%s'%(pool_type)
         self.compare=self.out[0]*self.out[1]*(kernel_size**2-1)*self.num_out
 pool=Pool
 
 class InnerProduct(Base):
-    def __init__(self,input,num_out,activation=None,name='innerproduct'):
+    def __init__(self,input,num_out,activation='relu',name='innerproduct'):
         if isinstance(input,Base):
             input=input()
         Base.__init__(self,input,name=name)
@@ -102,15 +111,16 @@ class InnerProduct(Base):
 Fc=InnerProduct
 fc=InnerProduct
 
-def save_csv(csv_save_path,save_items=('name', 'input', 'out', 'dot', 'add', 'compare', 'weight_size','blob_size')):
-    import csv
+def save_csv(csv_save_path,save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
+    import csv,pprint
     if csv_save_path!=None:
         with open(csv_save_path,'w') as file:
             writer=csv.writer(file)
             writer.writerow(save_items)
             for layer in box:
                 writer.writerow([getattr(layer,param) for param in save_items])
-
+    print_list=[]
     for layer in box:
-        print(','.join(str(j) for j in [getattr(layer,param) for param in save_items]))
+        print_list.append([getattr(layer,param) for param in save_items])
+    pprint.pprint(print_list,depth=3,width=200)
     print 'saved!'
