@@ -1,7 +1,7 @@
 import numpy as np
 
 class Blob():
-    def __init__(self,shape,father):
+    def __init__(self,shape,father=None):
         self.data=np.ones(shape)
         self.father=type(father)==list and father or [father]
     def new(self,father):

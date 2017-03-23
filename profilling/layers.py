@@ -1,12 +1,13 @@
 import numpy as np
 from blob import Blob
+import csv,pprint
 
 box=[]
 class Base(object):
     def __init__(self,input,name=''):
         if isinstance(input,Base):
             input=input()
-            assert isinstance(input,Blob),'The input of layer %s is not Blob, please use nn_tools.profilling.blob.Blob as input'%name
+            assert isinstance(input,Blob),'The input of layer %s is not Blob, please use nn_tools.P.blob.Blob as input'%name
         self.name=name
         self.input=input
         self.weight_size=0
@@ -60,18 +61,35 @@ class Sliding(Base):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False):
         # input (w,h,c)
         super(Sliding,self).__init__(input,name=name)
-        self.kernel_size=kernel_size
+        if type(kernel_size)==int:
+            self.kernel_size=[kernel_size,kernel_size]
+        else:
+            self.kernel_size=[i for i in kernel_size]
+            if len(self.kernel_size)==1:self.kernel_size*=2
+        if type(stride)==int:
+            self.stride=[stride,stride]
+        else:
+            self.stride=[i for i in stride]
+            if len(self.stride)==1:self.stride*=2
+            elif len(self.stride)==0:self.stride=[1,1]
+            elif len(self.stride)>2:raise AttributeError
+        if type(pad)==int:
+            self.pad=[pad,pad]
+        else:
+            self.pad=[i for i in pad]
+            if len(self.pad)==1:self.pad*=2
+            elif len(self.pad)==0:self.pad=[0,0]
+            elif len(self.pad)>2:raise AttributeError
         self.num_out=num_out
-        self.stride=stride
-        self.layer_info='kernel=%dx%d,stride=%d,pad=%d'%(kernel_size,kernel_size,stride,pad)
-        self.pad=pad
+        self.layer_info='kernel=%dx%d,stride=%dx%d,pad=%dx%d'%(self.kernel_size[0],self.kernel_size[1],
+                                                            self.stride[0],self.stride[1],self.pad[0],self.pad[1])
         #calc out
         if not ceil:
-            out_w=np.floor(float(self.input[0]+pad*2-kernel_size)/stride)+1
-            out_h=np.floor(float(self.input[1]+pad*2-kernel_size)/stride)+1
+            out_w=np.floor(float(self.input[0]+self.pad[0]*2-self.kernel_size[0])/self.stride[0])+1
+            out_h=np.floor(float(self.input[1]+self.pad[1]*2-self.kernel_size[1])/self.stride[1])+1
         else:
-            out_w = np.ceil(float(self.input[0] + pad * 2 - kernel_size) / stride) + 1
-            out_h = np.ceil(float(self.input[1] + pad * 2 - kernel_size) / stride) + 1
+            out_w = np.ceil(float(self.input[0] + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
+            out_h = np.ceil(float(self.input[1] + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
         self.out=Blob([out_w,out_h,num_out],self)
 
 class Conv(Sliding):
@@ -80,9 +98,9 @@ class Conv(Sliding):
             input=input()
         Sliding.__init__(self,input,kernel_size,num_out,stride,pad,name=name,ceil=ceil)
         self.layer_info+=',num_out=%d'%(num_out)
-        self.dot = self.out[0] * self.out[1] * self.input[2] * self.kernel_size ** 2 * self.num_out
+        self.dot = self.out[0] * self.out[1] * self.input[2] * np.prod(self.kernel_size) * self.num_out
         self.add = self.dot
-        self.weight_size=self.kernel_size**2*num_out*input[2]
+        self.weight_size=np.prod(self.kernel_size)*num_out*input[2]
         if activation:
             Activation(self.out,activation)
 conv=Conv
@@ -94,7 +112,7 @@ class Pool(Sliding):
         Sliding.__init__(self,input,kernel_size,input[2],stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
-        self.compare=self.out[0]*self.out[1]*(kernel_size**2-1)*self.num_out
+        self.compare=self.out[0]*self.out[1]*(np.prod(self.kernel_size)-1)*self.num_out
 pool=Pool
 
 class InnerProduct(Base):
@@ -113,7 +131,6 @@ Fc=InnerProduct
 fc=InnerProduct
 
 def save_csv(csv_save_path,save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
-    import csv,pprint
     if csv_save_path!=None:
         with open(csv_save_path,'w') as file:
             writer=csv.writer(file)
@@ -135,3 +152,10 @@ def get_layer_blox_from_blob(blob):
                 creator_search(father.input)
     creator_search(blob)
     return layers
+
+def print_by_blob(blob,print_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
+    layers=get_layer_blox_from_blob(blob)
+    print_list = []
+    for layer in layers:
+        print_list.append([str(getattr(layer, param)) for param in print_items])
+    pprint.pprint(print_list, depth=3, width=200)
