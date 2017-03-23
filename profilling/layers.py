@@ -1,15 +1,17 @@
 import numpy as np
+from blob import Blob
 
 box=[]
 class Base(object):
     def __init__(self,input,name=''):
         if isinstance(input,Base):
             input=input()
+            assert isinstance(input,Blob),'The input of layer %s is not Blob, please use nn_tools.profilling.blob.Blob as input'%name
         self.name=name
         self.input=input
         self.weight_size=0
         self.blob_size=None
-        self.input_size=np.prod(self.input)
+        self.input_size=np.prod(self.input.data)
         self.dot=0
         self.add=0
         self.pow=0
@@ -41,7 +43,7 @@ class Activation(Base):
         if name==None:name=type
         Base.__init__(self,input,name=name)
         getattr(self,type)()
-        self.out=self.input
+        self.out=self.input.new(self)
 
     def relu(self):
         self.compare=self.input_size
@@ -70,7 +72,7 @@ class Sliding(Base):
         else:
             out_w = np.ceil(float(self.input[0] + pad * 2 - kernel_size) / stride) + 1
             out_h = np.ceil(float(self.input[1] + pad * 2 - kernel_size) / stride) + 1
-        self.out=np.array([out_w,out_h,num_out])
+        self.out=Blob([out_w,out_h,num_out],self)
 
 class Conv(Sliding):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,activation='relu',name='conv',ceil=False):
@@ -100,12 +102,11 @@ class InnerProduct(Base):
         if isinstance(input,Base):
             input=input()
         Base.__init__(self,input,name=name)
-        self.input=np.prod(self.input)
         self.num_out=num_out
-        self.dot=self.num_out*self.input
-        self.add=self.num_out*self.input
-        self.out=np.array([self.num_out])
-        self.weight_size = self.num_out * self.input
+        self.dot=self.num_out
+        self.add=self.num_out*self.input_size
+        self.out=Blob([self.num_out],self)
+        self.weight_size = self.num_out * self.input_size
         if activation:
             Activation(self.out,activation)
 Fc=InnerProduct
@@ -124,3 +125,13 @@ def save_csv(csv_save_path,save_items=('name', 'layer_info', 'input', 'out', 'do
         print_list.append([getattr(layer,param) for param in save_items])
     pprint.pprint(print_list,depth=3,width=200)
     print 'saved!'
+
+def get_layer_blox_from_blob(blob):
+    layers=[]
+    def creator_search(blob):
+        for father in blob.father:
+            if isinstance(father,Base):
+                layers.append(father)
+                creator_search(father.input)
+    creator_search(blob)
+    return layers
