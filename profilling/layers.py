@@ -25,22 +25,36 @@ class Base(object):
     def __call__(self, *args, **kwargs):
         return self.out
     def __setattr__(self, key, value):
-        if key=='out':
-            self.blob_size=np.prod(value)
+        if key=='out' and value!=None:
+            self.blob_size=np.prod(value.data.shape)
         return object.__setattr__(self, key,value)
     def __getattribute__(self, item):
         if item=='flops':
             self.flops=self.pow+self.add+self.dot+self.compare
         return object.__getattribute__(self,item)
 
+class Norm(Base):
+    valid_tuple=('norm')
+    def __init__(self,input,type,name=None):
+        if type not in Norm.valid_tuple:
+            raise NameError('the norm type:' + type + ' is not supported. ' \
+                             'the valid type is: ' + str(Activation.valid_tuple))
+        if name == None: name = type
+        Base.__init__(self, input, name=name)
+        getattr(self, type)()
+        self.out = self.input.new(self)
+
+    def norm(self):
+        self.dot = self.input_size
+        self.add = self.input_size
 
 class Activation(Base):
     #valid tuple lists the valid activation function type
     valid_tuple=('relu','tanh','prelu')
     def __init__(self,input,type,name=None):
         if type not in Activation.valid_tuple:
-            raise NameError,'the activation type:'+type+' is not supported. ' \
-                            'the valid type is: '+str(Activation.valid_tuple)
+            raise NameError('the activation type:'+type+' is not supported. ' \
+                            'the valid type is: '+str(Activation.valid_tuple))
         if name==None:name=type
         Base.__init__(self,input,name=name)
         getattr(self,type)()
@@ -130,32 +144,46 @@ class InnerProduct(Base):
 Fc=InnerProduct
 fc=InnerProduct
 
-def save_csv(csv_save_path,save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
+class Permute(Base):
+    def __init__(self, input,dims, name='permute'):
+        super(Permute,self).__init__(input,name)
+        self.out = Blob(dims,self)
+
+class Flatten(Base):
+    def __init__(self,input, name='permute'):
+        super(Flatten, self).__init__(input, name)
+        dim=[np.prod(input.data.shape)]
+        self.out = Blob(dim, self)
+
+def save_csv(blobs,csv_save_path,save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
+    layers = get_layer_blox_from_blobs(blobs)
+    print_list = []
+    for layer in layers:
+        print_list.append([str(getattr(layer, param)) for param in save_items])
     if csv_save_path!=None:
         with open(csv_save_path,'w') as file:
             writer=csv.writer(file)
             writer.writerow(save_items)
-            for layer in box:
-                writer.writerow([getattr(layer,param) for param in save_items])
-    print_list=[]
-    for layer in box:
-        print_list.append([getattr(layer,param) for param in save_items])
+            for layer in print_list:
+                writer.writerow(layer)
     pprint.pprint(print_list,depth=3,width=200)
     print 'saved!'
 
-def get_layer_blox_from_blob(blob):
+def get_layer_blox_from_blobs(blobs):
     layers=[]
     def creator_search(blob):
         for father in blob.father:
-            if isinstance(father,Base):
+            if isinstance(father,Base) and father not in layers:
                 layers.append(father)
                 creator_search(father.input)
-    creator_search(blob)
+    for blob in blobs:
+        creator_search(blob)
     return layers
 
-def print_by_blob(blob,print_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
-    layers=get_layer_blox_from_blob(blob)
+def print_by_blob(blobs,print_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
+    layers=get_layer_blox_from_blobs(blobs)
     print_list = []
     for layer in layers:
         print_list.append([str(getattr(layer, param)) for param in print_items])
     pprint.pprint(print_list, depth=3, width=200)
+    return print_list
