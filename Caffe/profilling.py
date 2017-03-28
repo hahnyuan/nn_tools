@@ -51,6 +51,10 @@ def profilling(net,input=None):
                 param=layer.psroi_pooling_param
                 out = PSROIPool(blob_dict[layer.bottom[0]],blob_dict[layer.bottom[1]],
                                 param.output_dim,param.group_size)
+            if layer.type=='ROIPooling':
+                param=layer.roi_pooling_param
+                out = ROIPool(blob_dict[layer.bottom[0]],blob_dict[layer.bottom[1]],
+                              param.pooled_w,param.pooled_h,layer.name)
             if out:
                 blob_dict[layer.top[0]] = out()
                 not_ref.append(blob_dict[layer.top[0]])
