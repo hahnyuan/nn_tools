@@ -29,11 +29,18 @@ def profilling(net,input=None):
                              param.pad, layer.name,param.pool)
             if layer.type == 'Normalize':
                 out = Norm(blob_dict[layer.bottom[0]], 'norm', layer.name)
+            if layer.type == 'BatchNorm':
+                out= Norm(blob_dict[layer.bottom[0]],'batch_norm',layer.name)
+            if layer.type== 'LRN':
+                out= Norm(blob_dict[layer.bottom[0]],'lrn',layer.name)
             if layer.type == 'Permute':
                 shape=[blob_dict[layer.bottom[0]][dim-1] for dim in layer.permute_param.order[1:]]
                 out = Permute(blob_dict[layer.bottom[0]],shape,layer.name)
             if layer.type == 'Flatten':
                 out = Flatten(blob_dict[layer.bottom[0]], layer.name)
+            if layer.type == 'Scale':
+                out =Scale (blob_dict[layer.bottom[0]], name = layer.name)
+
             if out:
                 blob_dict[layer.top[0]] = out()
                 not_ref.append(blob_dict[layer.top[0]])

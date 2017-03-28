@@ -1,18 +1,45 @@
 import csv,pprint
 from .layers import Base
 
-def save_csv(blobs,csv_save_path,save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
+def save_csv(blobs,csv_save_path,
+             save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size'),
+             print_detail=True):
     layers = get_layer_blox_from_blobs(blobs)
     print_list = []
+    sum=[0]*len(save_items)
     for layer in layers:
-        print_list.append([str(getattr(layer, param)) for param in save_items])
+        print_line=[]
+        for idx,param in enumerate(save_items):
+            item=getattr(layer, param)
+            if type(item)==list:
+                s=''
+                for i in item:
+                    s+=' '+str(i)
+            else:
+                s=str(item)
+            try:
+                num=int(item)
+                sum[idx]+=num
+            except:pass
+            print_line.append(s)
+        print_list.append(print_line)
+
     if csv_save_path!=None:
         with open(csv_save_path,'w') as file:
             writer=csv.writer(file)
             writer.writerow(save_items)
             for layer in print_list:
                 writer.writerow(layer)
-    pprint.pprint(print_list,depth=3,width=200)
+    if print_detail:
+        sum[0] = 'SUM'
+        print_list.append(sum)
+        pprint.pprint(print_list,depth=3,width=200)
+    else:
+        print_list=[]
+        for idx,item in enumerate(sum):
+            if item>0:
+                print_list.append('%s:%.3e'%(save_items[idx],item))
+        print(print_list)
     print 'saved!'
 
 def get_layer_blox_from_blobs(blobs):

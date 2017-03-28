@@ -44,7 +44,7 @@ class Base(object):
         return object.__getattribute__(self,item)
 
 class Norm(Base):
-    valid_tuple=('norm')
+    valid_tuple=('norm','batch_norm','lrn')
     def __init__(self,input,type,name=None):
         if type not in Norm.valid_tuple:
             raise NameError('the norm type:' + type + ' is not supported. ' \
@@ -55,6 +55,14 @@ class Norm(Base):
         self.out = self.input.new(self)
 
     def norm(self):
+        self.dot = self.input_size
+        self.add = self.input_size
+
+    def batch_norm(self):
+        self.dot = self.input_size
+        self.add = self.input_size
+
+    def lrn(self):
         self.dot = self.input_size
         self.add = self.input_size
 
@@ -148,7 +156,7 @@ class Pool(Sliding):
     def __init__(self,input,kernel_size,stride=1,pad=0,name='pool',pool_type='max',ceil=False):
         if isinstance(input,Base):
             input=input()
-        Sliding.__init__(self,input,kernel_size,input[2],stride,pad,name=name,ceil=ceil)
+        Sliding.__init__(self,input,kernel_size,input[3],stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
         self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
@@ -159,11 +167,12 @@ class InnerProduct(Base):
         if isinstance(input,Base):
             input=input()
         Base.__init__(self,input,name=name)
+        self.left_dim=np.prod(input.shape[1:])
         self.num_out=num_out
-        self.dot=self.num_out
+        self.dot=self.num_out*self.input_size
         self.add=self.num_out*self.input_size
         self.out=Blob([self.num_out],self)
-        self.weight_size = self.num_out * self.input_size
+        self.weight_size = self.num_out * self.left_dim
         if activation:
             Activation(self.out,activation)
 Fc=InnerProduct
@@ -192,4 +201,12 @@ class Eltwise(Base):
             self.compare=np.prod(self.out.shape)
         else:
             raise AttributeError('the Eltwise layer type must be sum, max or product')
+
+class Scale(Base):
+    def __init__(self, input, factor=None, name='scale'):
+        super(Scale, self).__init__(input, name, )
+        self.out = input.new(self)
+
+        # TODO scale analysis
+
 
