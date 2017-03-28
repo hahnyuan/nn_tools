@@ -1,18 +1,28 @@
 import numpy as np
-from blob import Blob
-import csv,pprint
+from .blob import Blob
+
 
 box=[]
+
 class Base(object):
     def __init__(self,input,name=''):
-        if isinstance(input,Base):
-            input=input()
-            assert isinstance(input,Blob),'The input of layer %s is not Blob, please use nn_tools.P.blob.Blob as input'%name
+        def transfer_input(_input):
+            if isinstance(_input,Base):
+                _input=_input()
+                assert isinstance(input,Blob),'The input of layer %s is not Blob, please use nn_tools.P.blob.Blob as input'%name
+            return _input
+        if type(input)==list:
+            # if multi input
+            self.input=[transfer_input(i) for i in input]
+            self.input_size = np.sum([np.prod(i.shape) for i in self.input])
+            self.muti_input=True
+        else:
+            self.input = transfer_input(input)
+            self.input_size = np.prod(self.input.shape)
+            self.muti_input = False
         self.name=name
-        self.input=input
         self.weight_size=0
         self.blob_size=None
-        self.input_size=np.prod(self.input.data)
         self.dot=0
         self.add=0
         self.pow=0
@@ -73,8 +83,22 @@ class Activation(Base):
 
 class Sliding(Base):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False):
-        # input (w,h,c)
+        # input (w,h,c) or (batch,w,h,c)
         super(Sliding,self).__init__(input,name=name)
+        if len(self.input.shape)==3:
+            self.input_w=self.input[0]
+            self.input_h=self.input[1]
+            self.batch_size=1
+            self.in_channel =self.input[2]
+        elif len(self.input.shape)==4:
+            self.input_w = self.input[1]
+            self.input_h = self.input[2]
+            self.batch_size = self.input[0]
+            self.in_channel = self.input[3]
+        else:
+            raise ValueError('Sliding must have a input with (w,h,c) or (batch,w,h,c)')
+
+
         if type(kernel_size)==int:
             self.kernel_size=[kernel_size,kernel_size]
         else:
@@ -98,13 +122,14 @@ class Sliding(Base):
         self.layer_info='kernel=%dx%d,stride=%dx%d,pad=%dx%d'%(self.kernel_size[0],self.kernel_size[1],
                                                             self.stride[0],self.stride[1],self.pad[0],self.pad[1])
         #calc out
+
         if not ceil:
-            out_w=np.floor(float(self.input[0]+self.pad[0]*2-self.kernel_size[0])/self.stride[0])+1
-            out_h=np.floor(float(self.input[1]+self.pad[1]*2-self.kernel_size[1])/self.stride[1])+1
+            out_w=np.floor(float(self.input_w +self.pad[0]*2-self.kernel_size[0])/self.stride[0])+1
+            out_h= np.floor(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
         else:
-            out_w = np.ceil(float(self.input[0] + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
-            out_h = np.ceil(float(self.input[1] + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
-        self.out=Blob([out_w,out_h,num_out],self)
+            out_w = np.ceil(float(self.input_w + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
+            out_h = np.ceil(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
+        self.out=Blob([self.batch_size,out_w,out_h,num_out],self)
 
 class Conv(Sliding):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,activation='relu',name='conv',ceil=False):
@@ -112,9 +137,9 @@ class Conv(Sliding):
             input=input()
         Sliding.__init__(self,input,kernel_size,num_out,stride,pad,name=name,ceil=ceil)
         self.layer_info+=',num_out=%d'%(num_out)
-        self.dot = self.out[0] * self.out[1] * self.input[2] * np.prod(self.kernel_size) * self.num_out
+        self.dot = np.prod(self.out.shape) * np.prod(self.kernel_size) * self.in_channel
         self.add = self.dot
-        self.weight_size=np.prod(self.kernel_size)*num_out*input[2]
+        self.weight_size=np.prod(self.kernel_size)*num_out*self.in_channel
         if activation:
             Activation(self.out,activation)
 conv=Conv
@@ -126,7 +151,7 @@ class Pool(Sliding):
         Sliding.__init__(self,input,kernel_size,input[2],stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
-        self.compare=self.out[0]*self.out[1]*(np.prod(self.kernel_size)-1)*self.num_out
+        self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
 pool=Pool
 
 class InnerProduct(Base):
@@ -155,35 +180,16 @@ class Flatten(Base):
         dim=[np.prod(input.data.shape)]
         self.out = Blob(dim, self)
 
-def save_csv(blobs,csv_save_path,save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
-    layers = get_layer_blox_from_blobs(blobs)
-    print_list = []
-    for layer in layers:
-        print_list.append([str(getattr(layer, param)) for param in save_items])
-    if csv_save_path!=None:
-        with open(csv_save_path,'w') as file:
-            writer=csv.writer(file)
-            writer.writerow(save_items)
-            for layer in print_list:
-                writer.writerow(layer)
-    pprint.pprint(print_list,depth=3,width=200)
-    print 'saved!'
+class Eltwise(Base):
+    def __init__(self,inputs,type='sum',name='eltwise'):
+        super(Eltwise,self).__init__(inputs,name,)
+        self.out=inputs[0].new(self)
+        if type in ['sum','SUM']:
+            self.add=np.prod(self.out.shape)
+        elif type in ['product','PROD']:
+            self.dot=np.prod(self.out.shape)
+        elif type in ['max','MAX']:
+            self.compare=np.prod(self.out.shape)
+        else:
+            raise AttributeError('the Eltwise layer type must be sum, max or product')
 
-def get_layer_blox_from_blobs(blobs):
-    layers=[]
-    def creator_search(blob):
-        for father in blob.father:
-            if isinstance(father,Base) and father not in layers:
-                layers.append(father)
-                creator_search(father.input)
-    for blob in blobs:
-        creator_search(blob)
-    return layers
-
-def print_by_blob(blobs,print_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
-    layers=get_layer_blox_from_blobs(blobs)
-    print_list = []
-    for layer in layers:
-        print_list.append([str(getattr(layer, param)) for param in print_items])
-    pprint.pprint(print_list, depth=3, width=200)
-    return print_list

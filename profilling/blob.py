@@ -3,6 +3,7 @@ import numpy as np
 class Blob():
     def __init__(self,shape,father=None):
         self.data=np.ones(shape)
+        self.shape=self.data.shape
         self.father=type(father)==list and father or [father]
     def new(self,father):
         return Blob(self.data.shape,father)

@@ -542,6 +542,19 @@ message LayerParameter {
   optional TileParameter tile_param = 138;
   optional VideoDataParameter video_data_param = 207;
   optional WindowDataParameter window_data_param = 129;
+  //use for RFCN
+  optional BoxAnnotatorOHEMParameter box_annotator_ohem_param = 10000;
+  optional PSROIPoolingParameter psroi_pooling_param = 10001;
+}
+//use for RFCN
+message PSROIPoolingParameter {
+  required float spatial_scale = 1;
+  required int32 output_dim = 2; // output channel number
+  required int32 group_size = 3; // equal to pooled_size
+}
+message BoxAnnotatorOHEMParameter {
+  required uint32 roi_per_img = 1; // number of rois for training
+  optional int32 ignore_label = 2 [default = -1]; // ignore_label in scoring
 }
 
 // Message that stores parameters used to apply transformation
@@ -723,7 +736,8 @@ message LossParameter {
     // Divide by the batch size.
     BATCH_SIZE = 2;
     // Do not normalize the loss.
-    NONE = 3;
+    PRE_FIXED = 3;
+    NONE = 4;
   }
   // For historical reasons, the default normalization for
   // SigmoidCrossEntropyLoss is BATCH_SIZE and *not* VALID.
@@ -732,6 +746,7 @@ message LossParameter {
   // is not specified, then setting this to false will be equivalent to
   // normalization = BATCH_SIZE to be consistent with previous behavior.
   optional bool normalize = 2;
+  optional float pre_fixed_normalizer = 4 [default = 1];
 }
 
 // Messages that store parameters used by individual layer types follow, in
