@@ -27,7 +27,7 @@ class Base(object):
         self.add=0
         self.pow=0
         self.compare=0
-        self.flops=0
+        self.ops=0
         self.out=None
         self.layer_info=None
         box.append(self)
@@ -39,8 +39,8 @@ class Base(object):
             self.blob_size=np.prod(value.data.shape)
         return object.__setattr__(self, key,value)
     def __getattribute__(self, item):
-        if item=='flops':
-            self.flops=self.pow+self.add+self.dot+self.compare
+        if item=='ops':
+            self.ops=self.pow+self.add+self.dot+self.compare
         return object.__getattribute__(self,item)
 
 class Norm(Base):
@@ -207,6 +207,7 @@ class Scale(Base):
         super(Scale, self).__init__(input, name, )
         self.out = input.new(self)
 
+        self.dot=self.input_size
         # TODO scale analysis
 
 

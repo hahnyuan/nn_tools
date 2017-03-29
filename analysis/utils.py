@@ -1,9 +1,19 @@
 import csv,pprint
 from .layers import Base
 
+def get_human_readable(num):
+    units=['','K','M','G','T','P']
+    idx=0
+    while .001*num>1:
+        num=.001*num
+        idx+=1
+    if idx>=len(units):
+        return '%.3e'%num
+    return '%.3f'%num+units[idx]
+
 def save_csv(blobs,csv_save_path,
-             save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size'),
-             print_detail=True):
+             save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','ops', 'weight_size','blob_size'),
+             print_detail=True,human_readable=True):
     layers = get_layer_blox_from_blobs(blobs)
     print_list = []
     sum=[0]*len(save_items)
@@ -38,7 +48,10 @@ def save_csv(blobs,csv_save_path,
         print_list=[]
         for idx,item in enumerate(sum):
             if item>0:
-                print_list.append('%s:%.3e'%(save_items[idx],item))
+                if human_readable:
+                    print_list.append('%s:%s' % (save_items[idx], get_human_readable(item)))
+                else:
+                    print_list.append('%s:%.3e'%(save_items[idx],item))
         print(print_list)
     print 'saved!'
 
@@ -57,7 +70,7 @@ def get_layer_blox_from_blobs(blobs):
         creator_search(blob)
     return layers
 
-def print_by_blob(blobs,print_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','flops', 'weight_size','blob_size')):
+def print_by_blob(blobs,print_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','ops', 'weight_size','blob_size')):
     layers=get_layer_blox_from_blobs(blobs)
     print_list = []
     for layer in layers:
