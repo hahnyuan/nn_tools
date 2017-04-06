@@ -1,5 +1,20 @@
 from torch.autograd import Variable
+from .utils import AverageMeter
 
+def eval_classification_net(net,testloader,use_cuda=True):
+    # evaluation a classification net
+    # the testloader should return (input, labels(not one-hot version))
+    # return an Tensor with shape [1] for accuracy(%)
+    top1=AverageMeter()
+    for data in testloader:
+        inputs, targets = data
+        if use_cuda:
+            inputs=inputs.cuda()
+            targets=targets.cuda()
+        outputs = net(Variable(inputs))
+        res1,=compute_accuracy(outputs, targets, topk=(1,))
+        top1.update(res1)
+    return top1.avg
 
 def compute_accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
