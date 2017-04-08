@@ -55,6 +55,12 @@ class _Net(object):
         with open(path,'w') as f:
             f.write(text_format.MessageToString(prototxt))
 
+    def layer(self,layer_name):
+        return self.get_layer_by_name(layer_name)
+
+    def layers(self):
+        return list(self.net.layer)
+
 
 
 class Prototxt(_Net):
