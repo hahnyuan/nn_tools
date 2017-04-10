@@ -1,4 +1,4 @@
-
+import torch
 
 class Resize_preprocess(object):
     """Rescales the input PIL.Image to the given 'size_w,size_h'.

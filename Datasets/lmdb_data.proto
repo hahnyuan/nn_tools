@@ -1,0 +1,14 @@
+// this file is for nn_tools lmdb_dataset
+// written by yuanzhihang1@126.com
+
+syntax = "proto2";
+
+message Datum{
+  required bytes target=1;
+  required bytes data=2;
+  repeated bytes other=3;
+}
+
+message Dataset{
+  repeated Datum datums=1;
+}
