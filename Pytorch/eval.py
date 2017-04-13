@@ -6,8 +6,7 @@ def eval_classification_net(net,testloader,use_cuda=True):
     # the testloader should return (input, labels(not one-hot version))
     # return an Tensor with shape [1] for accuracy(%)
     top1 = AverageMeter()
-    for data in testloader:
-        inputs, targets = data
+    for inputs, targets in testloader:
         if use_cuda:
             inputs=inputs.cuda()
             targets=targets.cuda()

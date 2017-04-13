@@ -11,6 +11,8 @@ import time
 import multiprocessing
 
 DATASET_SIZE=100
+mean=np.array([[[0.485]], [[0.456]], [[0.406]]])*255
+std=np.array([[[0.229]], [[0.224]], [[0.225]]])*255
 
 class Imagenet_LMDB(lmdb_datasets.LMDB):
     def __init__(self,imagenet_dir,train=False):
@@ -20,20 +22,16 @@ class Imagenet_LMDB(lmdb_datasets.LMDB):
         super(Imagenet_LMDB, self).__init__(osp.join(imagenet_dir,train and self.train_name or self.val_name))
         txn=self.env.begin()
         self.cur=txn.cursor()
-        self.mean=np.array([[[0.485]], [[0.456]], [[0.406]]])
-        self.std=np.array([[[0.229]], [[0.224]], [[0.225]]])
-        self.data = Queue.Queue(maxsize=DATASET_SIZE*10)
-        self.target = Queue.Queue(maxsize=DATASET_SIZE*10)
-
-        self.read_from_lmdb()
-
+        self.data = Queue.Queue(DATASET_SIZE*2)
+        self.target = Queue.Queue(DATASET_SIZE*2)
+        self.point=0
+        # self._read_from_lmdb()
 
     def data_transfrom(self,data,other):
         data=data.astype(np.float32)
         if self.train:
             shape=np.fromstring(other[0],np.uint16)
             data=data.reshape(shape)
-            data=(data/255 - self.mean)/ self.std
             # Random crop
             _, w, h = data.shape
             x1 = np.random.randint(0, w - 224)
@@ -41,41 +39,42 @@ class Imagenet_LMDB(lmdb_datasets.LMDB):
             data=data[:,x1:x1+224 ,y1:y1 + 224]
             # HorizontalFlip
             #TODO horizontal flip
-            if data.shape!=(3,224,224):
-                pass
-            else:
-                pass
         else:
             data = data.reshape([3, 224, 224])
-            data = (data / 255 - self.mean) / self.std
-        data = torch.FloatTensor(data)
-        return data
+        data = (data - mean) / std
+        tensor = torch.Tensor(data)
+        del data
+        return tensor
 
     def target_transfrom(self,target):
         return target
 
-    def read_from_lmdb(self):
-        # r=time.time()
+    def _read_from_lmdb(self):
         self.cur.next()
         if not self.cur.key():
             self.cur.first()
-        dataset=pb2.Dataset().FromString(self.cur.value())
+        dataset = pb2.Dataset().FromString(self.cur.value())
         for datum in dataset.datums:
-            data=np.fromstring(datum.data,np.uint8)
+            data = np.fromstring(datum.data, np.uint8)
             try:
-                data=self.data_transfrom(data,datum.other)
+                data = self.data_transfrom(data, datum.other)
             except:
-                print 'cannot trans ',data.shape
+                print 'cannot trans ', data.shape
                 continue
-            target=int(datum.target)
-            target=self.target_transfrom(target)
+            target = int(datum.target)
+            target = self.target_transfrom(target)
             self.data.put(data)
             self.target.put(target)
-        # print 'read_from_lmdb', time.time()-r
+            # print 'read_from_lmdb', time.time()-r
+        del dataset
+
+    # def read_from_lmdb(self):
+    #     process=multiprocessing.Process(target=self._read_from_lmdb)
+    #     process.start()
 
     def __getitem__(self,index):
-        if self.target.empty():
-            self.read_from_lmdb()
+        if self.data.qsize()<DATASET_SIZE:
+            self._read_from_lmdb()
         data,target=self.data.get(),self.target.get()
         return data,target
 

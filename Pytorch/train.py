@@ -16,8 +16,8 @@ def train_classification_net(net,trainloader,testloader=None,save_path=None,base
     # the trainloader should return (input, labels(not one-hot version))
     # the criterion is CrossEntropyLoss by default
     logger=Logger(log and save_path+'.log' or None)
-    optimizer=optim.Adam(net.parameters(),lr=base_lr)
-    # TODO optimizer passed in
+    if optimizer==None:
+        optimizer=optim.Adam(net.parameters(),lr=base_lr)
     criterion = nn.CrossEntropyLoss()
     if use_cuda:
         criterion=criterion.cuda()
@@ -58,7 +58,9 @@ def train_classification_net(net,trainloader,testloader=None,save_path=None,base
                 load_time.reset()
                 batch_time.reset()
         if testloader:
+            net.train(False)
             acc=eval_classification_net(net,testloader)
+            net.train()
             logger('-- Validate Epoch [%d] Prec@1 [%f]'%(epoch, acc))
         if epoch%save_tmp_epoch==0:
             torch.save(net.state_dict(), save_path+'.tmp')
