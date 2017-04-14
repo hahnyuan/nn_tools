@@ -9,16 +9,17 @@ from .utils import AverageMeter
 from .eval import compute_accuracy
 from ..funcs import Logger
 
-def train_classification_net(net,trainloader,testloader=None,save_path=None,base_lr=0.01,
+def train_classification_net(net,trainloader,testloader=None,save_path='/tmp/pytorch_train_tmp.pth',base_lr=0.01,
                              num_epoch=5,use_cuda=True,optimizer=None,lr_change=None,
-                             print_iter=500,save_tmp_epoch=10,log=True):
+                             print_iter=500,save_tmp_epoch=10,log=True,criterion=None):
     # train a classification net
     # the trainloader should return (input, labels(not one-hot version))
     # the criterion is CrossEntropyLoss by default
     logger=Logger(log and save_path+'.log' or None)
     if optimizer==None:
         optimizer=optim.Adam(net.parameters(),lr=base_lr)
-    criterion = nn.CrossEntropyLoss()
+    if criterion==None:
+        criterion = nn.CrossEntropyLoss()
     if use_cuda:
         criterion=criterion.cuda()
         net=net.cuda()
@@ -57,11 +58,12 @@ def train_classification_net(net,trainloader,testloader=None,save_path=None,base
                 running_loss.reset()
                 load_time.reset()
                 batch_time.reset()
+                top1.reset()
         if testloader:
             net.train(False)
             acc=eval_classification_net(net,testloader)
             net.train()
-            logger('-- Validate Epoch [%d] Prec@1 [%f]'%(epoch, acc))
+            logger('-- Validate at Epoch [%d] Prec@1 [%f]'%(epoch+1, acc))
         if epoch%save_tmp_epoch==0:
             torch.save(net.state_dict(), save_path+'.tmp')
             print("%s %s saved" % (time.strftime('%H:%M:%S'), save_path+'.tmp'))
