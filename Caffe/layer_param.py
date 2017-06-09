@@ -12,6 +12,15 @@ class Layer_param():
         self.bottom=self.param.bottom
         self.bottom.extend(bottom)
 
+    def fc_param(self, num_output, weight_filler='xavier', bias_filler='constant'):
+        if self.type != 'InnerProduct':
+            raise TypeError, 'the layer type must be InnerProduct if you want set fc param'
+        fc_param = pb.InnerProductParameter()
+        fc_param.num_output = num_output
+        fc_param.weight_filler.type = weight_filler
+        fc_param.bias_filler.type = bias_filler
+        self.param.inner_product_param.CopyFrom(fc_param)
+
     def conv_param(self, num_output, kernel_size, stride=(1), weight_filler_type='xavier', bias_filler_type='constant'):
         """
         add a conv_param layer if you spec the layer type "Convolution"
@@ -35,14 +44,12 @@ class Layer_param():
         conv_param.bias_filler.type = bias_filler_type
         self.param.convolution_param.CopyFrom(conv_param)
 
-    def fc_param(self,num_output,weight_filler='xavier',bias_filler='constant'):
-        if self.type!='InnerProduct':
-            raise TypeError,'the layer type must be InnerProduct if you want set fc param'
-        fc_param=pb.InnerProductParameter()
-        fc_param.num_output=num_output
-        fc_param.weight_filler.type = weight_filler
-        fc_param.bias_filler.type = bias_filler
-        self.param.inner_product_param.CopyFrom(fc_param)
+    def pool_param(self,type='MAX',kernel_size=2,stride=2):
+        pool_param=pb.PoolingParameter()
+        pool_param.pool=pool_param.Value(type)
+        pool_param.kernel_size=kernel_size
+        pool_param.stride=stride
+        self.param.pooling_param.CopyFrom(pool_param)
 
     def batch_norm_param(self,use_global_stats=0,moving_average_fraction=None,eps=None):
         bn_param=pb.BatchNormParameter()
