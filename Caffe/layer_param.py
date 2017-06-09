@@ -53,6 +53,16 @@ class Layer_param():
             bn_param.eps = eps
         self.param.batch_norm_param.CopyFrom(bn_param)
 
+    def add_data(self,*args):
+        """Args are data numpy array
+        """
+        del self.param.blobs[:]
+        for data in args:
+            new_blob = self.param.blobs.add()
+            for dim in data.shape:
+                new_blob.shape.dim.append(dim)
+            new_blob.data.extend(data.flatten().astype(float))
+
     def set_params_by_dict(self,dic):
         pass
 
