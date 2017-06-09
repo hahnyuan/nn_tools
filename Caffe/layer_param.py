@@ -44,6 +44,14 @@ class Layer_param():
         fc_param.bias_filler.type = bias_filler
         self.param.inner_product_param.CopyFrom(fc_param)
 
+    def batch_norm_param(self,use_global_stats=0,moving_average_fraction=None,eps=None):
+        bn_param=pb.BatchNormParameter()
+        bn_param.use_global_stats=use_global_stats
+        if moving_average_fraction:
+            bn_param.moving_average_fraction=moving_average_fraction
+        if eps:
+            bn_param.eps = eps
+        self.param.batch_norm_param.CopyFrom(bn_param)
 
     def set_params_by_dict(self,dic):
         pass
