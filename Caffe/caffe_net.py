@@ -75,7 +75,7 @@ class Caffemodel(_Net):
         super(Caffemodel,self).__init__()
         # caffe_model dir
         if file_name!='':
-            f = open(file_name,'a+')
+            f = open(file_name,'rb')
             self.net.ParseFromString(f.read())
             f.close()
 
