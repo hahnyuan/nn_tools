@@ -91,7 +91,7 @@ class Activation(Base):
 
 class Sliding(Base):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False):
-        # input (w,h,c) or (batch,w,h,c)
+        # input is the instance of blob.Blob with shape (h,w,c) or (batch,h,w,c)
         super(Sliding,self).__init__(input,name=name)
         if len(self.input.shape)==3:
             self.input_w=self.input[0]
@@ -201,6 +201,15 @@ class Eltwise(Base):
             self.compare=np.prod(self.out.shape)
         else:
             raise AttributeError('the Eltwise layer type must be sum, max or product')
+
+class Concat(Base):
+    def __init__(self,inputs,name='concat'):
+        super(Concat,self).__init__(inputs,name,)
+        outc=0
+        for input in inputs:
+            outc+=input[-1]
+        dim=list(inputs[0].shape[:-1])+[outc]
+        self.out=Blob(dim,self)
 
 class Scale(Base):
     def __init__(self, input, factor=None, name='scale'):

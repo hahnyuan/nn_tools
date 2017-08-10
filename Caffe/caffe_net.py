@@ -67,8 +67,9 @@ class Prototxt(_Net):
     def __init__(self,file_name=''):
         super(Prototxt,self).__init__()
         if file_name!='':
-            f = open(file_name,'a+')
+            f = open(file_name,'r')
             text_format.Parse(f.read(), self.net)
+            pass
 
 class Caffemodel(_Net):
     def __init__(self, file_name=''):
