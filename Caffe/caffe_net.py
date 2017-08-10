@@ -1,4 +1,4 @@
-import nn_tools.Caffe.caffe_pb2 as pb
+import caffe_pb2 as pb
 import google.protobuf.text_format as text_format
 import numpy as np
 

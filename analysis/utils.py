@@ -44,6 +44,7 @@ def save_csv(blobs,csv_save_path,
         sum[0] = 'SUM'
         print_list.append(sum)
         pprint.pprint(print_list,depth=3,width=200)
+        print save_items
     else:
         print_list=[]
         for idx,item in enumerate(sum):

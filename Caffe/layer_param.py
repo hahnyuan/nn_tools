@@ -1,4 +1,4 @@
-import nn_tools.Caffe.caffe_pb2 as pb
+import caffe_pb2 as pb
 import numpy as np
 
 class Layer_param():

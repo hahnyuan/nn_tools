@@ -1,5 +1,6 @@
-from  nn_tools.analysis import *
 from collections import OrderedDict
+from layers import *
+from roi import *
 
 def profilling(net,input=None):
     # input is either a Blob with the shape of (batch,h,w,c) or a dict of them
