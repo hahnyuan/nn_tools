@@ -16,7 +16,7 @@ def read_mat(mat_path,cache_dir='/tmp'):
         genders = file['imdb'][0][0]['gender'][0]
         dob = file['imdb'][0][0]['dob'][0]
         photo_taken = file['imdb'][0][0]['photo_taken'][0]
-        ages = photo_taken - dob / 365 + 1
+        ages = np.array(photo_taken - dob / 365 + 1,np.uint8)
         pickle.dump([full_paths, face_locations, genders, ages], open(cache_file, 'wb'))
     else:
         print "read from cache_file"
