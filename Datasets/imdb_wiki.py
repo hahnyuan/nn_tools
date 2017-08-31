@@ -14,6 +14,7 @@ def read_mat(mat_path,cache_dir='/tmp'):
         full_paths = [full_path[0] for full_path in full_paths]
         face_locations = file['imdb'][0][0]['face_location'][0]
         genders = file['imdb'][0][0]['gender'][0]
+        genders = [int(gender) if -1<gender<3 else -1 for gender in genders]
         dob = file['imdb'][0][0]['dob'][0]
         photo_taken = file['imdb'][0][0]['photo_taken'][0]
         ages = np.array(photo_taken - dob / 365 + 1,np.uint8)
@@ -34,10 +35,10 @@ def generate_caffe_txt_age(mat_path,output_path,cache_dir='/tmp',test_ratio=0.2,
     np.random.shuffle(shuffle_idx)
     train_idx=shuffle_idx[int(len(shuffle_idx)*test_ratio):]
     test_idx=shuffle_idx[:int(len(shuffle_idx)*test_ratio)]
-    with open(os.path.join(output_path, 'train.txt'), 'w') as trainf:
+    with open(os.path.join(output_path, 'age_train.txt'), 'w') as trainf:
         for idx in train_idx:
             trainf.write("%s %d\n" % (full_paths[idx], classes[idx]))
-    with open(os.path.join(output_path, 'test.txt'), 'w') as testf:
+    with open(os.path.join(output_path, 'age_test.txt'), 'w') as testf:
         for idx in test_idx:
             testf.write("%s %d\n"%(full_paths[idx],classes[idx]))
 
@@ -48,11 +49,13 @@ def generate_caffe_txt_gender(mat_path,output_path,cache_dir='/tmp',test_ratio=0
     np.random.shuffle(shuffle_idx)
     train_idx=shuffle_idx[int(len(shuffle_idx)*test_ratio):]
     test_idx=shuffle_idx[:int(len(shuffle_idx)*test_ratio)]
-    with open(os.path.join(output_path, 'train.txt'), 'w') as trainf:
+    with open(os.path.join(output_path, 'gender_train.txt'), 'w') as trainf:
         for idx in train_idx:
+            if genders[idx]==-1:continue
             trainf.write("%s %d\n" % (full_paths[idx], genders[idx]))
-    with open(os.path.join(output_path, 'test.txt'), 'w') as testf:
+    with open(os.path.join(output_path, 'gender_test.txt'), 'w') as testf:
         for idx in test_idx:
+            if genders[idx]==-1:continue
             testf.write("%s %d\n"%(full_paths[idx],genders[idx]))
 
 if __name__=='__main__':
