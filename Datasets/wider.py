@@ -6,6 +6,8 @@ import os
 import time
 
 class WiderDataset():
+    annotation_names=['blur','pose','occlusion',
+                     'invalid','expression','illumination']
     def __init__(self,path,set='val'):
         self.set=set
         self._data_path=path
@@ -46,8 +48,7 @@ class WiderDataset():
                          'invalid':[],'expression':[],'illumination':[]}
         boxes=[]
         file_names = []
-        for name in ['blur','pose','occlusion',
-                     'invalid','expression','illumination']:
+        for name in self.annotation_names:
             for folder in f[name+'_label_list'][0]:
                 for image in f[folder][0]:
                     for value in f[image]:
@@ -85,5 +86,22 @@ class WiderDataset():
             reserve[self.annotations['invalid'][idx] != 0] = 0
         return reserve
 
+    def get_idx_annotation(self,idx):
+        annotation={}
+        for name in self.annotation_names:
+            annotation[name]=self.annotations[name][idx]
+        return annotation
+
     def __len__(self):
         return self.len
+
+    def __getitem__(self,idx):
+        # given a idx then read the idxth image in wider face dataset
+        # return [a numpy image with [1,height,width,BGR],boxes array ,annotations dict]
+        im = cv2.imread(self.file_names[idx])
+        while im is None:
+            idx-=1
+            im = cv2.imread(self.file_names[idx])
+        boxes=self.boxes[idx]
+        annotation=self.get_idx_annotation(idx)
+        return im,boxes,annotation
