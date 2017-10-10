@@ -8,6 +8,12 @@ AGES_END=[2,6,13,20,32,43,53,100]  # the end of the age scope
 AGES_MID=np.array([(i+j)/2 for i,j in zip(AGES_END,AGES_START)])
 GENDER=['m','f']  # u for unknown
 
+def get_class(age):
+    for i,(s,e) in enumerate(zip(AGES_START,AGES_END)):
+        if s<=age<=e:
+            return i
+    return np.argmin(np.abs(AGES_MID-age))
+
 def read_txt(root_path,cache_dir='/tmp'):
     # Reading the .txt annotation files in adience datasets and converting them to python objects.
     # Storing in the cache file (default in `/tmp/adience.pth`).
