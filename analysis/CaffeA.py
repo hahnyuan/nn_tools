@@ -19,7 +19,7 @@ def profilling(net,input=None):
             if layer.type == 'Convolution':
                 param = layer.convolution_param
                 out = conv(blob_dict[layer.bottom[0]], param.kernel_size, param.num_output, param.stride,
-                             param.pad, None, layer.name)
+                             param.pad, None, layer.name, group_size=param.group)
             if layer.type == 'InnerProduct':
                 param=layer.inner_product_param
                 out= fc(blob_dict[layer.bottom[0]],param.num_output,None,layer.name)

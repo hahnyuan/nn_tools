@@ -140,14 +140,19 @@ class Sliding(Base):
         self.out=Blob([self.batch_size,out_w,out_h,num_out],self)
 
 class Conv(Sliding):
-    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,activation='relu',name='conv',ceil=False):
+    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,
+                 activation='relu',name='conv',ceil=False,group_size=1):
         if isinstance(input,Base):
             input=input()
         Sliding.__init__(self,input,kernel_size,num_out,stride,pad,name=name,ceil=ceil)
         self.layer_info+=',num_out=%d'%(num_out)
         self.dot = np.prod(self.out.shape) * np.prod(self.kernel_size) * self.in_channel
+        self.weight_size = np.prod(self.kernel_size) * num_out * self.in_channel
+        if group_size!=1:
+            self.layer_info += ',group_size=%d' % (group_size)
+            self.dot /= group_size
+            self.weight_size /= group_size
         self.add = self.dot
-        self.weight_size=np.prod(self.kernel_size)*num_out*self.in_channel
         if activation:
             Activation(self.out,activation)
 conv=Conv
