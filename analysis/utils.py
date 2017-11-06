@@ -11,10 +11,10 @@ def get_human_readable(num):
         return '%.3e'%num
     return '%.3f'%num+units[idx]
 
-def save_csv(blobs,csv_save_path,
+def save_csv(layers,csv_save_path,
              save_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','ops', 'weight_size','blob_size'),
              print_detail=True,human_readable=True):
-    layers = get_layer_blox_from_blobs(blobs)
+    # layers = get_layer_blox_from_blobs(blobs)
     print_list = []
     sum=[0]*len(save_items)
     for layer in layers:

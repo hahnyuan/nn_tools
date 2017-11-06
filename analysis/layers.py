@@ -224,4 +224,11 @@ class Scale(Base):
         self.dot=self.input_size
         # TODO scale analysis
 
-
+class Softmax(Base):
+    def __init__(self, input, factor=None, name='softmax'):
+        super(Softmax, self).__init__(input, name, )
+        self.out = input.new(self)
+        self.power=self.input_size
+        self.add=self.input_size
+        self.dot=self.input_size
+        self.layer_info="softmax"

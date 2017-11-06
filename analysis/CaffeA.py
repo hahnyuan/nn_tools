@@ -4,6 +4,7 @@ from roi import *
 
 def profilling(net,input=None):
     # input is either a Blob with the shape of (batch,h,w,c) or a dict of them
+    layers=[]
     if isinstance(input,dict):
         blob_dict = OrderedDict(input)
         not_ref = [input[k] for k in input]
@@ -13,9 +14,6 @@ def profilling(net,input=None):
     for i, layer in enumerate(net.net.layer):
         out = None
         if len(layer.top) == 1 and len(layer.bottom) == 1:
-            # first remove the node from not_ref
-            try:not_ref.remove(blob_dict[layer.bottom[0]])
-            except:pass
             if layer.type == 'Convolution':
                 param = layer.convolution_param
                 out = conv(blob_dict[layer.bottom[0]], param.kernel_size, param.num_output, param.stride,
@@ -42,16 +40,20 @@ def profilling(net,input=None):
                 out = Flatten(blob_dict[layer.bottom[0]], layer.name)
             if layer.type == 'Scale':
                 out =Scale (blob_dict[layer.bottom[0]], name = layer.name)
+            if layer.type == 'Softmax':
+                out =Softmax (blob_dict[layer.bottom[0]], name = layer.name)
             if out:
+                try:
+                    not_ref.remove(blob_dict[layer.bottom[0]])
+                except:
+                    pass
                 blob_dict[layer.top[0]] = out()
                 not_ref.append(blob_dict[layer.top[0]])
+                layers.append(out)
             else:
                 assert 'layer type: %s cannot be P' % (layer.type)
         elif len(layer.bottom)>1:
             # for multi input layer
-            for bottom in layer.bottom:
-                try:not_ref.remove(blob_dict[bottom])
-                except:pass
             if layer.type=='Eltwise':
                 param=layer.eltwise_param
                 out = Eltwise([blob_dict[bottom] for bottom in layer.bottom],
@@ -67,8 +69,14 @@ def profilling(net,input=None):
             if layer.type == "Concat":
                 out = Concat([blob_dict[bottom] for bottom in layer.bottom],layer.name)
             if out:
+                for bottom in layer.bottom:
+                    try:
+                        not_ref.remove(blob_dict[bottom])
+                    except:
+                        pass
                 blob_dict[layer.top[0]] = out()
                 not_ref.append(blob_dict[layer.top[0]])
+                layers.append(out)
             else:
                 assert 'layer type: %s cannot be P' % (layer.type)
-    return blob_dict,not_ref
+    return blob_dict,layers
