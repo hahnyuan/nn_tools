@@ -11,5 +11,5 @@ if __name__=="__main__":
     args=parser.parse_args()
     shape=[int(i) for i in args.shape.split(',')]
     net=caffe_net.Prototxt(args.prototxt)
-    blob_dict, layers=profilling(net,Blob(shape))
+    blob_dict, layers=profiling(net, Blob(shape))
     save_csv(layers,args.outdir)

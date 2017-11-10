@@ -164,7 +164,10 @@ class Pool(Sliding):
         Sliding.__init__(self,input,kernel_size,input[3],stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
-        self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
+        if pool_type=='max':
+            self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
+        else:
+            print("WARNING, NOT IMPLEMENT POOL TYPE %s PROFILING "%pool_type)
 pool=Pool
 
 class InnerProduct(Base):
@@ -176,7 +179,7 @@ class InnerProduct(Base):
         self.num_out=num_out
         self.dot=self.num_out*self.input_size
         self.add=self.num_out*self.input_size
-        self.out=Blob([self.num_out],self)
+        self.out=Blob([input[0],self.num_out],self)
         self.weight_size = self.num_out * self.left_dim
         if activation:
             Activation(self.out,activation)
