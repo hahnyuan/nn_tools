@@ -34,8 +34,8 @@ def analyse(module,raw_input):
         out = Activation(input[0],'relu')
     if out:
         tracked_layers.append(out)
-    else:
-        print 'WARNING: skip layer %s' % str(module)
+    # else:
+    #     print 'WARNING: skip layer %s' % str(module)
 
 def module_hook(module, input, output):
     # print('module hook')
@@ -50,6 +50,8 @@ def register(module):
     module.register_forward_hook(module_hook)
 
 def profiling(net,input):
+    del tracked_layers[:]
+    del blob_dict[:]
     if isinstance(input,dict):
         assert NotImplementedError
     else:

@@ -166,6 +166,9 @@ class Pool(Sliding):
         self.layer_info+=',type=%s'%(pool_type)
         if pool_type=='max':
             self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
+        elif pool_type=='avg':
+            self.add = np.prod(self.input)
+            self.dot = np.prod(self.out)
         else:
             print("WARNING, NOT IMPLEMENT POOL TYPE %s PROFILING "%pool_type)
 pool=Pool
