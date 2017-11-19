@@ -7,6 +7,11 @@ class Blob():
         self.data=np.ones(shape)
         self.shape=self.data.shape
         self.father=type(father)==list and father or [father]
+
+    @property
+    def size(self):
+        return np.prod(self.shape)
+
     def new(self,father):
         return Blob(self.data.shape,father)
     def __getitem__(self, key):
