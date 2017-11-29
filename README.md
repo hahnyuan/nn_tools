@@ -7,7 +7,7 @@
 ### features
 
 1. Converting a model between different frameworks.
-2. Constructing a model using this tools quickly.
+2. Some convenient tools of manipulate caffemodel and prototxt quickly, see [Caffe model](https://github.com/hahnyuan/nn_tools/tree/master/Caffe).
 3. Analysing a model, get the operations number(ops) in every layers.
 
 ### requirements
@@ -32,6 +32,3 @@ For example `python caffe_analyser.py resnet_18_deploy.prototxt analys_result.cs
 
 doc comming soon
 
-# Constructor
-
-doc comming soon

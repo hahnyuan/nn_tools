@@ -66,10 +66,26 @@ class _Net(object):
 class Prototxt(_Net):
     def __init__(self,file_name=''):
         super(Prototxt,self).__init__()
+        self.file_name=file_name
         if file_name!='':
             f = open(file_name,'r')
             text_format.Parse(f.read(), self.net)
             pass
+
+    def init_caffemodel(self,caffe_cmd_path='caffe'):
+        """
+        :param caffe_cmd_path: The shell command of caffe, normally at <path-to-caffe>/build/tools/caffe
+        """
+        s=pb.SolverParameter()
+        s.train_net=self.file_name
+        s.max_iter=0
+        s.base_lr=1
+        s.solver_mode = pb.SolverParameter.CPU
+        s.snapshot_prefix='./nn'
+        with open('/tmp/nn_tools_solver.prototxt','w') as f:
+            f.write(str(s))
+        import os
+        os.system('%s train --solver /tmp/nn_tools_solver.prototxt'%caffe_cmd_path)
 
 class Caffemodel(_Net):
     def __init__(self, file_name=''):
@@ -113,7 +129,7 @@ class Caffemodel(_Net):
         return datas
 
     def set_layer_data(self,layer_name,datas):
-        # datas is a list of [weights,bias]
+        # datas is normally a list of [weights,bias]
         layer=self.layer(layer_name)
         for blob,data in zip(layer.blobs,datas):
             blob.data[:]=data.flatten()
