@@ -1,9 +1,10 @@
 # coding=utf-8
+from __future__ import absolute_import
 import torch
 import argparse
 import sys,os
-from analysis.PytorchA import profiling
-from analysis.utils import save_csv
+from .analysis.PytorchA import profiling
+from .analysis.utils import save_csv
 from torch.autograd import Variable
 
 """
@@ -32,7 +33,6 @@ if __name__=="__main__":
     path,filename=os.path.split(args.path)
     filename=os.path.splitext(filename)[0]
     sys.path.insert(0,path)
-    print path
     exec('from %s import %s as Net'%(filename,args.class_name))
     net=Net(*args.class_args.split())
     shape = [int(i) for i in args.shape.split(',')]
