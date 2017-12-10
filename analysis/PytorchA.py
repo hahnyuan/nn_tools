@@ -1,9 +1,10 @@
+from __future__ import absolute_import
 import torch
 import torch.nn as nn
 import numpy as np
 from torch.autograd import Variable
 from collections import OrderedDict
-from layers import *
+from .layers import *
 
 tracked_layers=[]
 blob_dict=[]

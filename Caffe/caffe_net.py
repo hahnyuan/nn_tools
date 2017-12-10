@@ -1,9 +1,8 @@
-import caffe_pb2 as pb
+from __future__ import absolute_import
+from . import caffe_pb2 as pb
 import google.protobuf.text_format as text_format
 import numpy as np
-
-
-from layer_param import Layer_param
+from .layer_param import Layer_param
 
 class _Net(object):
     def __init__(self):
@@ -38,14 +37,14 @@ class _Net(object):
             if layer.name == layer_name:
                 del self.net.layer[i]
                 return
-        raise AttributeError, "cannot found layer %s" % str(layer_name)
+        raise(AttributeError, "cannot found layer %s" % str(layer_name))
 
     def get_layer_by_name(self, layer_name):
         # get the layer by layer_name
         for layer in self.net.layer:
             if layer.name == layer_name:
                 return layer
-        raise AttributeError, "cannot found layer %s" % str(layer_name)
+        raise(AttributeError, "cannot found layer %s" % str(layer_name))
 
     def save_prototxt(self,path):
         prototxt=pb.NetParameter()
@@ -137,4 +136,4 @@ class Caffemodel(_Net):
 
 class Net():
     def __init__(self,*args,**kwargs):
-        raise NameError,'the class Net is no longer used, please use Caffemodel or Prototxt instead'
+        raise(TypeError,'the class Net is no longer used, please use Caffemodel or Prototxt instead')

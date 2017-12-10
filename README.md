@@ -12,7 +12,7 @@
 
 ### requirements
 
-- Python2.7
+- Python2.7 or Python3.x
 - Each functions in this tools requires corresponding neural network python package (tensorflow pytorch and so on).
 
 # Analyser
@@ -44,5 +44,26 @@ For example `python pytorch_analyser.py tmp/pytorch_analysis_test.py ResNet218 1
 
 # Converter
 
-doc comming soon
+## Pytorch to Caffe
 
+Ported from [pytorch2caffe](https://github.com/longcw/pytorch2caffe). 
+
+Example: Make a new file outside of the nn_tools package,
+```python
+import torch
+from torch.autograd import Variable
+import torchvision
+import os
+from nn_tools.pytorch_to_caffe import pytorch_to_caffe
+
+net = torchvision.models.vgg16(pretrained=True)
+net.eval()
+input_var = Variable(torch.rand(1, 3, 224, 224))
+output_var = net.forward(input_var)
+
+output_dir='/tmp'
+pytorch_to_caffe(input_var, output_var,
+              os.path.join(output_dir, 'vgg16.prototxt'),
+              os.path.join(output_dir, 'vgg16.caffemodel'),
+              name='vgg16')
+```

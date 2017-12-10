@@ -44,7 +44,7 @@ def save_csv(layers,csv_save_path,
         sum[0] = 'SUM'
         print_list.append(sum)
         pprint.pprint(print_list,depth=3,width=200)
-        print save_items
+        print(save_items)
     else:
         print_list=[]
         for idx,item in enumerate(sum):
@@ -54,7 +54,7 @@ def save_csv(layers,csv_save_path,
                 else:
                     print_list.append('%s:%.3e'%(save_items[idx],item))
         print(print_list)
-    print 'saved!'
+    print('saved!')
 
 def get_layer_blox_from_blobs(blobs):
     layers=[]
