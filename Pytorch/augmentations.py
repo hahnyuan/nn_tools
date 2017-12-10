@@ -338,6 +338,48 @@ class SSD_RandomSampleCrop(object):
 
                 return current_image, current_boxes, current_labels
 
+class Padding(object):
+    def __init__(self, size=1,type='constant',constant_color=(255,255,255)):
+        self.size = size
+        self.type = type
+        self.constant_color=list(constant_color)
+
+    def __call__(self, image, *args):
+        size=self.size
+        if self.type=='constant':
+            image = cv2.copyMakeBorder(image, size, size, size, size, cv2.BORDER_CONSTANT, value=self.constant_color)
+        elif self.type=='reflect':
+            image = cv2.copyMakeBorder(image, size, size, size, size, cv2.BORDER_REFLECT)
+        elif self.type=='replicate':
+            image = cv2.copyMakeBorder(image, size, size, size, size, cv2.BORDER_REPLICATE)
+
+        if len(args):
+            return (image, *args)
+        else:
+            return image
+
+class RandomCrop(object):
+    def __init__(self,padding):
+        self.padding=padding
+
+    def __call__(self,image,*args):
+        xi=random.randint(0,self.padding*2)
+        yi=random.randint(0,self.padding*2)
+        image=image[xi:-(2*self.padding-xi),yi:-(self.padding*2-yi),:]
+        if len(args):
+            return (image, *args)
+        else:
+            return image
+
+class Scale(object):
+    def __init__(self,dim):
+        self.dim=dim
+    def __call__(self,image,*args):
+        image=cv2.resize(image,self.dim)
+        if len(args):
+            return (image, *args)
+        else:
+            return image
 
 class SSD_Expand(object):
     def __init__(self, mean):
@@ -450,3 +492,24 @@ def get_hue_transform(dim, mean_values):
         SwapChannels(swap),
         transforms.Normalize(mean_values, (1, 1, 1))
     ])
+
+def get_advanced_transform(dim, mean_values):
+    # loader must be cv2 loader
+    swap = (2, 1, 0)
+    return transforms.Compose([
+        Scale(dim),
+        Padding(5),
+        RandomCrop(5),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.mul(255)),
+        RandomHue(),
+        SwapChannels(swap),
+        transforms.Normalize(mean_values, (1, 1, 1))
+    ])
+
+
+def cv2_loader(path):
+    image=cv2.imread(path)
+    if image is None:
+        pass
+    return image
