@@ -1,6 +1,7 @@
+from __future__ import absolute_import
 from collections import OrderedDict
-from layers import *
-from roi import *
+from .layers import *
+from .roi import *
 
 def profiling(net, input=None):
     # input is either a Blob with the shape of (batch,h,w,c) or a dict of them

@@ -3,8 +3,8 @@ from __future__ import absolute_import
 import torch
 import argparse
 import sys,os
-from .analysis.PytorchA import profiling
-from .analysis.utils import save_csv
+from analysis.PytorchA import profiling
+from analysis.utils import save_csv
 from torch.autograd import Variable
 
 """

@@ -12,7 +12,7 @@
 
 ### requirements
 
-- Python2.7 or Python3
+- Python2.7 or Python3.x
 - Each functions in this tools requires corresponding neural network python package (tensorflow pytorch and so on).
 
 # Analyser
