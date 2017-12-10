@@ -1,4 +1,4 @@
-import lmdb
+import caffe_lmdb
 from . import lmdb_data_pb2 as pb2
 import numpy as np
 import multiprocessing
@@ -7,7 +7,7 @@ import os
 
 class LMDB(object):
     def __init__(self,lmdb_dir):
-        self.env=lmdb.Environment(lmdb_dir,map_size=int(1e12))
+        self.env=caffe_lmdb.Environment(lmdb_dir, map_size=int(1e12))
 
     # --------------------------------------
     # for LMDB writer
@@ -18,7 +18,7 @@ class LMDB(object):
     # for LMDB reader
 class LMDB_generator(object):
     def __init__(self,lmdb_dir):
-        self.env=lmdb.Environment(lmdb_dir,map_size=int(1e12))
+        self.env=caffe_lmdb.Environment(lmdb_dir, map_size=int(1e12))
 
     def generate_datum(self,data,target,other=None):
         datum = pb2.Datum()
@@ -72,7 +72,6 @@ class LMDB_generator(object):
     def write_lmdb_mutiprocess(self,torch_data_loader,num_thread=10,num_per_dataset=6000):
         # TODO mutiprocess write lmdb
         pass
-
 
 
 if __name__=='__main__':

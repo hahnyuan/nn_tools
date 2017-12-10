@@ -7,7 +7,7 @@
 ### features
 
 1. Converting a model between different frameworks.
-2. Some convenient tools of manipulate caffemodel and prototxt quickly, see [Caffe model](https://github.com/hahnyuan/nn_tools/tree/master/Caffe).
+2. Some convenient tools of manipulate caffemodel and prototxt quickly(like get or set weights of layers), see [nn_tools.Caffe](https://github.com/hahnyuan/nn_tools/tree/master/Caffe).
 3. Analysing a model, get the operations number(ops) in every layers.
 
 ### requirements
