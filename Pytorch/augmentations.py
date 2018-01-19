@@ -171,10 +171,10 @@ class RandomHue(object):
 class RandomValue(object):
     def __init__(self, delta=15.0):
         assert delta>=0.0 and delta<=255.0
-        self.delta = delta
+        self.delta = int(delta)
     def __call__(self, image, *args):
         if random.randint(2):
-            image[:, :, 2] += random.uniform(-self.delta, self.delta)
+            image[:, :, 2] += random.randint(-self.delta, self.delta)
             image[:, :, 2][image[:, :, 2] > 255.0] = 255.0
             image[:, :, 2][image[:, :, 2] < 0.0] = 0.0
         if len(args):
@@ -511,24 +511,13 @@ class SSDAugmentation(object):
     def __call__(self, img, boxes, labels):
         return self.augment(img, boxes, labels)
 
-def get_hue_transform(dim, mean_values):
-    swap = (2, 1, 0)
-    return transforms.Compose([
-        transforms.Scale(dim),
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: x.mul(255)),
-        RandomHue(),
-        SwapChannels(swap),
-        transforms.Normalize(mean_values, (1, 1, 1))
-    ])
-
-def get_advanced_transform(dim, mean_values):
+def get_advanced_transform(dim):
     # loader must be cv2 loader
-    swap = (2, 1, 0)
     return transforms.Compose([
         Scale(dim),
         Padding(5),
         RandomCrop(5),
+        ConvertFromInts(),
         BGR_2_HSV(),
         RandomHue(),
         RandomSaturation(),
@@ -537,6 +526,14 @@ def get_advanced_transform(dim, mean_values):
         transforms.ToTensor(),
     ])
 
+def get_advanced_transform_test(dim):
+    # loader must be cv2 loader
+    return transforms.Compose([
+        Scale(dim),
+        Padding(5),
+        RandomCrop(5),
+        transforms.ToTensor(),
+    ])
 
 def cv2_loader(path):
     image=cv2.imread(path)
