@@ -108,6 +108,22 @@ class SSD_ToPercentCoords(object):
         return image, boxes, labels
 
 
+class BGR_2_HSV(object):
+    def __call__(self, image, *args):
+        HSV_img = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        if len(args):
+            return (HSV_img, *args)
+        else:
+            return HSV_img
+
+class HSV_2_BGR(object):
+    def __call__(self, image, *args):
+        BGR_img = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
+        if len(args):
+            return (BGR_img, *args)
+        else:
+            return BGR_img
+
 class Resize(object):
     def __init__(self, size=300):
         self.size = size
@@ -152,6 +168,19 @@ class RandomHue(object):
         else:
             return image
 
+class RandomValue(object):
+    def __init__(self, delta=15.0):
+        assert delta>=0.0 and delta<=255.0
+        self.delta = delta
+    def __call__(self, image, *args):
+        if random.randint(2):
+            image[:, :, 2] += random.uniform(-self.delta, self.delta)
+            image[:, :, 2][image[:, :, 2] > 255.0] = 255.0
+            image[:, :, 2][image[:, :, 2] < 0.0] = 0.0
+        if len(args):
+            return (image, *args)
+        else:
+            return image
 
 class RandomLightingNoise(object):
     def __init__(self):
@@ -500,11 +529,12 @@ def get_advanced_transform(dim, mean_values):
         Scale(dim),
         Padding(5),
         RandomCrop(5),
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: x.mul(255)),
+        BGR_2_HSV(),
         RandomHue(),
-        SwapChannels(swap),
-        transforms.Normalize(mean_values, (1, 1, 1))
+        RandomSaturation(),
+        RandomValue(),
+        HSV_2_BGR(),
+        transforms.ToTensor(),
     ])
 
 
