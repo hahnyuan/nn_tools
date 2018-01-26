@@ -146,7 +146,7 @@ class RandomSaturation(object):
 
     def __call__(self, image, *args):
         if random.randint(2):
-            image[:, :, 1] *= random.uniform(self.lower, self.upper)
+            image[:, :, 1] = (image[:,:,1]*random.uniform(self.lower, self.upper)).astype(np.uint8)
         if len(args):
             return (image, *args)
         else:
@@ -155,14 +155,14 @@ class RandomSaturation(object):
 
 class RandomHue(object):
     def __init__(self, delta=18.0):
-        assert delta >= 0.0 and delta <= 360.0
+        assert delta >= 0.0 and delta <= 255
         self.delta = delta
 
     def __call__(self, image, *args):
         if random.randint(2):
-            image[:, :, 0] += random.uniform(-self.delta, self.delta)
-            image[:, :, 0][image[:, :, 0] > 360.0] -= 360.0
-            image[:, :, 0][image[:, :, 0] < 0.0] += 360.0
+            image[:, :, 0] += np.uint8(random.uniform(-self.delta, self.delta))
+            image[:, :, 0][image[:, :, 0] > 255.0] -= 255
+            image[:, :, 0][image[:, :, 0] < 0.0] += 255
         if len(args):
             return (image,)
         else:
@@ -170,13 +170,14 @@ class RandomHue(object):
 
 class RandomValue(object):
     def __init__(self, delta=15.0):
+        # random add or sub a random value in hsv mode
         assert delta>=0.0 and delta<=255.0
         self.delta = int(delta)
     def __call__(self, image, *args):
         if random.randint(2):
-            image[:, :, 2] += random.randint(-self.delta, self.delta)
-            image[:, :, 2][image[:, :, 2] > 255.0] = 255.0
-            image[:, :, 2][image[:, :, 2] < 0.0] = 0.0
+            image[:, :, 2] += np.uint8(random.randint(-self.delta, self.delta))
+            image[:, :, 2][image[:, :, 2] > 255.0] = 255
+            image[:, :, 2][image[:, :, 2] < 0.0] = 0
         if len(args):
             return (image, *args)
         else:
@@ -250,15 +251,24 @@ class RandomBrightness(object):
         else:
             return image
 
+class RandomNoise(object):
+    def __init__(self,max_noise=3):
+        self.max_noise=max_noise
+    def __call__(self,image,*args):
+        noise=np.random.randint(-self.max_noise,self.max_noise,image.shape)
+        image=noise+image
+        if len(args):
+            return (image,*args)
+        else:
+            return image
 
-class SSD_ToCV2Image(object):
-    def __call__(self, tensor, boxes=None, labels=None):
-        return tensor.cpu().numpy().astype(np.float32).transpose((1, 2, 0)), boxes, labels
-
-
-class SSD_ToTensor(object):
-    def __call__(self, cvimage, boxes=None, labels=None):
-        return torch.from_numpy(cvimage.astype(np.float32)).permute(2, 0, 1), boxes, labels
+class ToTensor(object):
+    def __call__(self, cvimage, *args):
+        image=torch.from_numpy(cvimage.astype(np.float32)).permute(2, 0, 1)
+        if len(args):
+            return (image, *args)
+        else:
+            return image
 
 
 class SSD_RandomSampleCrop(object):
@@ -410,6 +420,23 @@ class Scale(object):
         else:
             return image
 
+class Flip(object):
+    def __init__(self,dim=1,percentage=0.5):
+        """1 for horizontal flip
+        0 for vertical flip
+        -1 for both flip"""
+        self.dim=dim
+        self.percentage=percentage
+
+    def __call__(self, image, *args):
+        if np.random.rand()<self.percentage:
+            cv2.flip(image,self.dim,image)
+        #inplace flip
+        if len(args):
+            return (image, *args)
+        else:
+            return image
+
 class SSD_Expand(object):
     def __init__(self, mean):
         self.mean = mean
@@ -511,28 +538,42 @@ class SSDAugmentation(object):
     def __call__(self, img, boxes, labels):
         return self.augment(img, boxes, labels)
 
-def get_advanced_transform(dim):
+def get_advanced_transform(dim,padding=5,random_crop=5,hue=True,
+                           saturation=True,value=True,horizontal_flip=True,
+                           random_noise=0,mean=(127.5,127.5,127.5),std=(127.5,127.5,127.5)):
     # loader must be cv2 loader
-    return transforms.Compose([
-        Scale(dim),
-        Padding(5),
-        RandomCrop(5),
-        ConvertFromInts(),
-        BGR_2_HSV(),
-        RandomHue(),
-        RandomSaturation(),
-        RandomValue(),
-        HSV_2_BGR(),
-        transforms.ToTensor(),
-    ])
+    t=[]
+    if dim!=None:
+        t.append(Scale(dim))
+    if padding:
+        t.append(Padding(int(padding)))
+    if random_crop:
+        t.append(RandomCrop(int(random_crop)))
+    if hue or saturation or value:
+        t.append(BGR_2_HSV())
+    if hue:
+        t.append(RandomHue())
+    if saturation:
+        t.append(RandomSaturation())
+    if value:
+        t.append(RandomValue())
+    if hue or saturation or value:
+        t.append(HSV_2_BGR())
+    if horizontal_flip:
+        t.append(Flip(1))
+    if random_noise:
+        t.append(RandomNoise(random_noise))
+    t.append(ToTensor())
+    # normalize (x_channel-mean)/std
+    t.append(transforms.Normalize(mean,std))
+    return transforms.Compose(t)
 
-def get_advanced_transform_test(dim):
+def get_advanced_transform_test(dim,mean=(127.5,127.5,127.5),std=(127.5,127.5,127.5)):
     # loader must be cv2 loader
     return transforms.Compose([
         Scale(dim),
-        Padding(5),
-        RandomCrop(5),
-        transforms.ToTensor(),
+        ToTensor(),
+        transforms.Normalize(mean,std),
     ])
 
 def cv2_loader(path):
