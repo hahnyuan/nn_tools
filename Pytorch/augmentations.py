@@ -540,33 +540,37 @@ class SSDAugmentation(object):
 
 def get_advanced_transform(dim,padding=5,random_crop=5,hue=True,
                            saturation=True,value=True,horizontal_flip=True,
-                           random_noise=0,mean=(127.5,127.5,127.5),std=(127.5,127.5,127.5)):
+                           random_noise=0,mean=(127.5,127.5,127.5),std=(127.5,127.5,127.5),
+                           other_functions=()):
     # loader must be cv2 loader
-    t=[]
+    # other functions will be added after the HSV transform
+    trans=[]
     if dim!=None:
-        t.append(Scale(dim))
+        trans.append(Scale(dim))
     if padding:
-        t.append(Padding(int(padding)))
+        trans.append(Padding(int(padding)))
     if random_crop:
-        t.append(RandomCrop(int(random_crop)))
+        trans.append(RandomCrop(int(random_crop)))
     if hue or saturation or value:
-        t.append(BGR_2_HSV())
+        trans.append(BGR_2_HSV())
     if hue:
-        t.append(RandomHue())
+        trans.append(RandomHue())
     if saturation:
-        t.append(RandomSaturation())
+        trans.append(RandomSaturation())
     if value:
-        t.append(RandomValue())
+        trans.append(RandomValue())
     if hue or saturation or value:
-        t.append(HSV_2_BGR())
+        trans.append(HSV_2_BGR())
+    for func in other_functions:
+        trans.append(func)
     if horizontal_flip:
-        t.append(Flip(1))
+        trans.append(Flip(1))
     if random_noise:
-        t.append(RandomNoise(random_noise))
-    t.append(ToTensor())
-    # normalize (x_channel-mean)/std
-    t.append(transforms.Normalize(mean,std))
-    return transforms.Compose(t)
+        trans.append(RandomNoise(random_noise))
+    trans.append(ToTensor())
+    # normalize method: (x_channel-mean)/std
+    trans.append(transforms.Normalize(mean,std))
+    return transforms.Compose(trans)
 
 def get_advanced_transform_test(dim,mean=(127.5,127.5,127.5),std=(127.5,127.5,127.5)):
     # loader must be cv2 loader
