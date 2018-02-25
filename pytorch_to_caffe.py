@@ -1,207 +1,335 @@
-from __future__ import absolute_import
-from collections import OrderedDict
+import torch
+import torch.nn as nn
+from Caffe import caffe_net
+import torch.nn.functional as F
+from torch.autograd import Variable
+from Caffe import layer_param
+from torch.nn.modules.utils import _pair
 import numpy as np
-from .Caffe import caffe_net
-from .Caffe.layer_param import set_enum
-# import caffe
 
-layer_dict = {'ConvNdBackward': 'Convolution',
-              'ThresholdBackward': 'ReLU',
-              'MaxPool2dBackward': 'Pooling',
-              'AvgPool2dBackward': 'Pooling',
-              'DropoutBackward': 'Dropout',
-              'AddmmBackward': 'InnerProduct',
-              'BatchNormBackward': 'BatchNorm',
-              'AddBackward': 'Eltwise',
-              'ViewBackward': 'Reshape',
-              'ConcatBackward': 'Concat',
-              'UpsamplingNearest2d': 'Deconvolution',
-              'UpsamplingBilinear2d': 'Deconvolution',
-              'SigmoidBackward': 'Sigmoid',
-              'LeakyReLUBackward': 'ReLU',
-              'NegateBackward': 'Power',
-              'MulBackward': 'Eltwise',
-              'SpatialCrossMapLRNFunc': 'LRN'}
+"""
+How to support a new layer type:
+ layer_name=log.add_layer(layer_type_name)
+ top_blobs=log.add_blobs(<output of that layer>)
+ layer=caffe_net.Layer_param(xxx)
+ <set layer parameters>
+ [<layer.add_data(*datas)>]
+ log.cnet.add_layer(layer)
+"""
 
-layer_id=0
+# TODO: support the inplace output of the layers
 
-def trans_to_protobuf(net, input_var, output_var, name):
-    net.net.name=name
-    net.net.input.extend(['data'])
-    for size in input_var.size():
-        net.net.input_dim.extend([size])
-    global layer_id
-    layer_id=1
-    seen = set()
-    top_names = dict()
-    def add_layer(func):
-        global layer_id
-        parent_type = str(type(func).__name__)
-        parent_bottoms = []
-        if hasattr(func, 'next_functions'):
-            for u in func.next_functions:
-                # Generating DAG
-                if u[0] is not None:
-                    child_type = str(type(u[0]).__name__)
-                    if child_type != 'AccumulateGrad' and (
-                            parent_type != 'AddmmBackward' or child_type != 'TransposeBackward'):
-                        if u[0] not in seen:
-                            top_name = add_layer(u[0])
-                            parent_bottoms.append(top_name)
-                            seen.add(u[0])
-                        else:
-                            top_name = top_names[u[0]]
-                            parent_bottoms.append(top_name)
-                        if child_type != 'ViewBackward':
-                            # Ignore the View Backward
-                            # TODO: view
-                            layer_id = layer_id + 1
+class TransLog(object):
+    def __init__(self):
+        """
+        doing init() with inputs Variable before using it
+        """
+        self.layers={}
+        self._blobs={}
+        self._blobs_data=[]
+        self.cnet=caffe_net.Caffemodel('')
+        self.debug=False
 
-        parent_name = layer_dict[parent_type] + str(layer_id)
+    def init(self,inputs):
+        """
+        :param inputs: is a list of input variables
+        """
+        self.add_blobs(inputs)
+    def add_layer(self,name='layer'):
+        if name in self.layers:
+            return self.layers[name]
+        name='{}{}'.format(name,len(self.layers))
+        self.layers[name]=name
+        if self.debug:
+            print("{} was added to layers".format(self.layers[name]))
+        return self.layers[name]
 
-        if parent_type not in layer_dict.keys():
-            raise(NotImplementedError,'The layer is not implemented yet: %s'%parent_type)
-
-        parent_top = parent_name
-        if layer_id > 1:
-            bottom = parent_bottoms
-        else:
-            bottom = ['data']
-        top_names[func]=parent_name
-        # initial a layer
-        layer_param=caffe_net.Layer_param(name=parent_name,type=layer_dict[parent_type],
-                                          top=[parent_name],bottom=bottom)
-        if parent_type == 'MulBackward':
-            # Element Wise Prod Layer
-            param=caffe_net.pb.EltwiseParameter()
-            set_enum(param,'operation','PROD')
-            layer_param.param.eltwise_param.CopyFrom(param)
-        elif parent_type == 'AddBackward':
-            # Element Wise Sum Layer
-            param = caffe_net.pb.EltwiseParameter()
-            param.operation=param.EltwiseOp.Value('SUM')
-            layer_param.param.eltwise_param.CopyFrom(param)
-        elif parent_type == 'NegateBackward':
-            # Power Layer to Negative the data
-            param=caffe_net.pb.PowerParameter()
-            param.power=1
-            param.scale=-1
-            param.shift=0
-            layer_param.param.power_param.CopyFrom(param)
-        elif parent_type == 'LeakyReLUBackward':
-            # Leaky Relu
-            negative_slope = func.additional_args[0]
-            param=caffe_net.pb.ReLUParameter()
-            param.negative_slope=negative_slope
-            layer_param.param.power_param.CopyFrom(param)
-        elif parent_type == 'UpsamplingNearest2d':
-            # Deconvolution Layer to Apply Nearest Upsampling
-            pass
-            # TODO: UpsamplingNearest2d
-        elif parent_type == 'UpsamplingBilinear2d':
-            # Deconvolution Layer to Apply Nearest Upsampling
-            pass
-            # TODO: UpsamplingBilinear2d
-        elif parent_type == 'ConcatBackward':
-            # Concat Layer
-            param=caffe_net.pb.ConcatParameter()
-            param.axis=func.dim
-            layer_param.param.concat_param.CopyFrom(param)
-        elif parent_type == 'ConvNdBackward':
-            # Convolution Layer
-            if func.transposed is True and func.next_functions[1][0] is None:
-                # TODO: UpsamplingCaffe
-                pass
+    def add_blobs(self, blobs,name='blob',with_num=True):
+        rst=[]
+        for blob in blobs:
+            self._blobs_data.append(blob) # to block the memory address be rewrited
+            blob=int(id(blob))
+            if with_num:
+                rst.append('{}{}'.format(name,len(self._blobs)))
             else:
-                weights = func.next_functions[1][0].variable
-                layer_param.conv_param(num_output=weights.size(0),
-                                       kernel_size=(weights.size(2),weights.size(3)),
-                                       stride=(func.stride[0],),
-                                       pad=(func.padding[0],func.padding[1]),
-                                       bias_term=False if func.next_functions[2][0] is None else True,
-                                       dilation=(func.dilation[0],)
-                                       )
-                if func.next_functions[2][0]:
-                    layer_param.add_data(func.next_functions[1][0].variable.data.numpy(),
-                                          func.next_functions[2][0].variable.data.numpy())
-                else:
-                    layer_param.add_data(func.next_functions[1][0].variable.data.numpy())
+                rst.append('{}'.format(name))
+            if self.debug:
+                print("{}:{} was added to blobs".format(blob,rst[-1]))
+            self._blobs[blob]=rst[-1]
+        return rst
+    def blobs(self, var):
+        var=id(var)
+        if self.debug:
+            print("{}:{} getting".format(var, self._blobs[var]))
+        return self._blobs[var]
 
-        elif parent_type == 'BatchNormBackward':
-            # BatchNorm Layer
-            param=caffe_net.pb.BatchNormParameter()
-            param.use_global_stats=True
-            param.eps=func.eps
-            layer_param.param.batch_norm_param.CopyFrom(param)
-            layer_param.add_data(func.running_mean.numpy(),func.running_var.numpy(),np.array([1.0]))
-            # Caffe Implement BatchNorm = BatchNorm + Affine
-            if func.next_functions[1][0] is not None:
-                net.add_layer(layer_params=layer_param)
-                layer_param = caffe_net.Layer_param(name=parent_name+'_Scale', type='Scale',
-                                                    top=[parent_name], bottom=[parent_name])
-                param=caffe_net.pb.ScaleParameter()
-                param.bias_term=True
-                layer_param.param.scale_param.CopyFrom(param)
-                layer_param.add_data(func.next_functions[1][0].variable.data.numpy(),
-                                      func.next_functions[2][0].variable.data.numpy())
+log=TransLog()
 
-        elif parent_type == 'ThresholdBackward':
-            # ReLU, no parameters
-            pass
-        elif parent_type == 'MaxPool2dBackward':
-            # Max pooling
-            layer_param.pool_param(type='MAX',
-                                   kernel_size=func.kernel_size[0],
-                                   stride=func.stride[0],
-                                   pad=func.padding[0],
-                                   )
-        elif parent_type == 'AvgPool2dBackward':
-            # Average pooling
-            layer_param.pool_param(type='AVE',
-                                   kernel_size=func.kernel_size[0],
-                                   stride=func.stride[0],
-                                   pad=func.padding[0],
-                                   )
-        elif parent_type == 'DropoutBackward':
-            # Dropout Layer
-            param=caffe_net.pb.DropoutParameter()
-            param.dropout_ratio=func.p
-            layer_param.param.dropout_param.CopyFrom(param)
-        elif parent_type == 'AddmmBackward':
-            # Inner product
-            layer_param.fc_param(num_output=func.next_functions[0][0].variable.size(0))
-            layer_param.add_data(func.next_functions[2][0].next_functions[0][0].variable.data.numpy(),
-                                 func.next_functions[0][0].variable.data.numpy())
-        elif parent_type == 'ViewBackward':
-            # Ignore the View
-            # TODO: View
-            parent_top = parent_bottoms[0]
-            return parent_top
-        elif parent_type == 'SpatialCrossMapLRNFunc':
-            # LRN Layer
-            param=caffe_net.pb.LRNParameter()
-            param.local_size=func.size
-            param.alpha=func.alpha
-            param.beta=func.beta
-            layer_param.param.lrn_param.CopyFrom(param)
+def _conv2d(raw,input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
+    x=raw(input,weight,bias,stride,padding,dilation,groups)
+    name=log.add_layer(name='conv')
+    log.add_blobs([x],name='conv_blob')
+    layer=caffe_net.Layer_param(name=name, type='Convolution',
+                                bottom=[log.blobs(input)], top=[log.blobs(x)])
+    layer.conv_param(x.size()[1],weight.size()[2:],stride=_pair(stride),
+                     pad=_pair(padding))
+    if bias is not None:
+        layer.add_data(weight.cpu().data.numpy(),bias.cpu().data.numpy())
+    else:
+        layer.param.convolution_param.bias_term=False
+        layer.add_data(weight.cpu().data.numpy())
+    log.cnet.add_layer(layer)
+    return x
 
-        net.add_layer(layer_params=layer_param)
-        return parent_top
+def _linear(raw,input, weight, bias=None):
+    x=raw(input,weight,bias)
+    layer_name=log.add_layer(name='fc')
+    top_blobs=log.add_blobs([x],name='fc_blob')
+    layer=caffe_net.Layer_param(name=layer_name,type='InnerProduct',
+                                bottom=[log.blobs(input)],top=top_blobs)
+    layer.fc_param(x.size()[1])
+    if bias is not None:
+        layer.add_data(weight.cpu().data.numpy(),bias.cpu().data.numpy())
+    else:
+        layer.add_data(weight.cpu().data.numpy())
+    log.cnet.add_layer(layer)
+    return x
 
-    add_layer(output_var.grad_fn)
-    return net
+def _split(raw,tensor, split_size, dim=0):
+    # split in pytorch is slice in caffe
+    x=raw(tensor, split_size, dim)
+    layer_name=log.add_layer('split')
+    top_blobs=log.add_blobs(x,name='split_blob')
+    layer=caffe_net.Layer_param(name=layer_name, type='Slice',
+                                bottom=[log.blobs(tensor)], top=top_blobs)
+    slice_num=int(np.floor(tensor.size()[dim]/split_size))
+    slice_param=caffe_net.pb.SliceParameter(axis=dim,slice_point=[split_size*i for i in range(1,slice_num)])
+    layer.param.slice_param.CopyFrom(slice_param)
+    log.cnet.add_layer(layer)
+    return x
 
-def pytorch_to_caffe(input_var, output_var, prototxt, caffemodel, name='no_name'):
-    """
-    :param input_var: net input Variable
-    :param output_var: net output Variable
-    :param prototxt: file name to save the prototxt
-    :param caffemodel: file name to save the caffemodel
-    """
-    print("starting to transfrom net %s"%name)
-    net = caffe_net.Caffemodel('')
-    trans_to_protobuf(net, input_var, output_var, name)
-    print('save prototxt to %s' % prototxt)
-    net.save_prototxt(prototxt)
-    print('save caffemodel to %s' % caffemodel)
-    net.save(caffemodel)
+def _pool(type,input,x,kernel_size,stride,padding,ceil_mode):
+    # TODO dilation,ceil_mode,return indices
+    layer_name = log.add_layer(name='{}_pool'.format(type))
+    top_blobs = log.add_blobs([x], name='{}_pool_blob'.format(type))
+    layer = caffe_net.Layer_param(name=layer_name, type='Pooling',
+                                  bottom=[log.blobs(input)], top=top_blobs)
+    # TODO w,h different kernel, stride and padding
+    # processing ceil mode
+    layer.pool_param(kernel_size=kernel_size, stride=kernel_size if stride is None else stride,
+                     pad=padding, type=type.upper())
+    log.cnet.add_layer(layer)
+    if ceil_mode==False:
+        if (input.size()[2]+2*_pair(padding)[0])%(_pair(kernel_size)[0])!=0 or \
+                                (input.size()[3]+2*_pair(padding)[1])%(_pair(kernel_size)[1])!=0:
+            print("WARNING: pytorch pooling ceil mode not open at layer '{}', "
+                  "which cause the output shape miss match "
+                  "because of the different implementation that ceil mode in caffe and the floor mode in pytorch.\n"
+                  "You can add the clip layer in caffe prototxt manually if shape mismatch error is caused in caffe. ".format(layer_name))
+
+def _max_pool2d(raw,input, kernel_size, stride=None, padding=0, dilation=1,
+               ceil_mode=False, return_indices=False):
+    x = raw(input, kernel_size, stride, padding, dilation,ceil_mode, return_indices)
+    _pool('max',input, x, kernel_size, stride, padding,ceil_mode)
+    return x
+
+def _avg_pool2d(raw,input, kernel_size, stride = None, padding = 0, ceil_mode = False, count_include_pad = True):
+    x = raw(input, kernel_size, stride, padding, ceil_mode, count_include_pad)
+    _pool('ave',input, x, kernel_size, stride, padding,ceil_mode)
+    return x
+
+def _max(raw,*args):
+    x=raw(*args)
+    if len(args)==1:
+        # TODO max in one tensor
+        assert NotImplementedError
+    else:
+        bottom_blobs=[]
+        for arg in args:
+            bottom_blobs.append(log.blobs(arg))
+        layer_name=log.add_layer(name='max')
+        top_blobs=log.add_blobs([x],name='max_blob')
+        layer=caffe_net.Layer_param(name=layer_name,type='Eltwise',
+                                    bottom=bottom_blobs,top=top_blobs)
+        layer.param.eltwise_param.operation =2
+        log.cnet.add_layer(layer)
+    return x
+
+def _cat(raw,inputs, dimension=0):
+    x=raw(inputs, dimension)
+    bottom_blobs=[]
+    for input in inputs:
+        bottom_blobs.append(log.blobs(input))
+    layer_name=log.add_layer(name='cat')
+    top_blobs=log.add_blobs([x],name='cat_blob')
+    layer=caffe_net.Layer_param(name=layer_name,type='Concat',
+                                bottom=bottom_blobs,top=top_blobs)
+    layer.param.concat_param.axis =dimension
+    log.cnet.add_layer(layer)
+    return x
+
+def _dropout(raw,input,p=0.5, training=False, inplace=False):
+    x=raw(input,p, training, inplace)
+    bottom_blobs=[log.blobs(input)]
+    layer_name=log.add_layer(name='dropout')
+    top_blobs=log.add_blobs([x],name=bottom_blobs[0],with_num=False)
+    layer=caffe_net.Layer_param(name=layer_name,type='Dropout',
+                                bottom=bottom_blobs,top=top_blobs)
+    layer.param.dropout_param.dropout_ratio = p
+    layer.param.include.extend([caffe_net.pb.NetStateRule(phase=0)]) # 1 for test, 0 for train
+    log.cnet.add_layer(layer)
+    return x
+
+def _threshold(raw,input, threshold, value, inplace=False):
+    # for threshold or relu
+    if threshold==0 and value==0:
+        x = raw(input,threshold, value, inplace)
+        name = log.add_layer(name='relu')
+        log.add_blobs([x], name='relu_blob')
+        layer = caffe_net.Layer_param(name=name, type='ReLU',
+                                      bottom=[log.blobs(input)], top=[log.blobs(x)])
+        log.cnet.add_layer(layer)
+        return x
+    if value!=0:
+        raise NotImplemented("value !=0 not implemented in caffe")
+    x=raw(input,input, threshold, value, inplace)
+    bottom_blobs=[log.blobs(input)]
+    layer_name=log.add_layer(name='threshold')
+    top_blobs=log.add_blobs([x],name='threshold_blob')
+    layer=caffe_net.Layer_param(name=layer_name,type='Threshold',
+                                bottom=bottom_blobs,top=top_blobs)
+    layer.param.threshold_param.threshold = threshold
+    log.cnet.add_layer(layer)
+    return x
+
+def _batch_norm(raw,input, running_mean, running_var, weight=None, bias=None,
+               training=False, momentum=0.1, eps=1e-5):
+    # because the runing_mean and runing_var will be changed after the _batch_norm operation, we first save the parameters
+    running_mean_clone=running_mean.clone()
+    running_var_clone=running_var.clone()
+    x = raw(input, running_mean, running_var, weight, bias,
+               training, momentum, eps)
+    bottom_blobs = [log.blobs(input)]
+    layer_name1 = log.add_layer(name='batch_norm')
+    top_blobs = log.add_blobs([x], name='batch_norm_blob')
+    layer1 = caffe_net.Layer_param(name=layer_name1, type='BatchNorm',
+                                   bottom=bottom_blobs, top=top_blobs)
+    layer1.batch_norm_param(1, eps=eps)
+    layer1.add_data(running_mean_clone.cpu().numpy(), running_var_clone.cpu().numpy(), np.array([1.0]))
+    log.cnet.add_layer(layer1)
+    layer_name2 = log.add_layer(name='bn_scale')
+    layer2 = caffe_net.Layer_param(name=layer_name2, type='Scale',
+                                   bottom=top_blobs, top=top_blobs)
+    layer2.param.scale_param.bias_term = True
+    layer2.add_data(weight.cpu().data.numpy(), bias.cpu().data.numpy())
+    log.cnet.add_layer(layer2)
+    return x
+
+# ----- for Variable operations --------
+
+def _view(input, *args):
+    x=raw_view(input, *args)
+    layer_name=log.add_layer(name='view')
+    top_blobs=log.add_blobs([x],name='view_blob')
+    layer=caffe_net.Layer_param(name=layer_name,type='Reshape',
+                                bottom=[log.blobs(input)],top=top_blobs)
+    # TODO: reshpae added to nn_tools layer
+    dims=list(args)
+    dims[0]=0 # the first dim should be batch_size
+    layer.param.reshape_param.shape.CopyFrom(caffe_net.pb.BlobShape(dim=dims))
+    log.cnet.add_layer(layer)
+    return x
+
+def _add(input, *args):
+    x = raw__add__(input, *args)
+    layer_name = log.add_layer(name='add')
+    top_blobs = log.add_blobs([x], name='add_blob')
+    layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
+                                  bottom=[log.blobs(input),log.blobs(args[0])], top=top_blobs)
+    layer.param.eltwise_param.operation = 1 # sum is 1
+    log.cnet.add_layer(layer)
+    return x
+
+def _iadd(input, *args):
+    x = raw__iadd__(input, *args)
+    x=x.clone()
+    layer_name = log.add_layer(name='add')
+    top_blobs = log.add_blobs([x], name='add_blob')
+    layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
+                                  bottom=[log.blobs(input),log.blobs(args[0])], top=top_blobs)
+    layer.param.eltwise_param.operation = 1 # sum is 1
+    log.cnet.add_layer(layer)
+    return x
+
+def _sub(input, *args):
+    x = raw__sub__(input, *args)
+    layer_name = log.add_layer(name='sub')
+    top_blobs = log.add_blobs([x], name='sub_blob')
+    layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
+                                  bottom=[log.blobs(input),log.blobs(args[0])], top=top_blobs)
+    layer.param.eltwise_param.operation = 1 # sum is 1
+    layer.param.eltwise_param.coeff.extend([1.,-1.])
+    log.cnet.add_layer(layer)
+    return x
+
+def _isub(input, *args):
+    x = raw__isub__(input, *args)
+    x=x.clone()
+    layer_name = log.add_layer(name='sub')
+    top_blobs = log.add_blobs([x], name='sub_blob')
+    layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
+                                  bottom=[log.blobs(input),log.blobs(args[0])], top=top_blobs)
+    layer.param.eltwise_param.operation = 1 # sum is 1
+    layer.param.eltwise_param.coeff.extend([1., -1.])
+    log.cnet.add_layer(layer)
+    return x
+
+class Rp(object):
+    def __init__(self,raw,replace,**kwargs):
+        # replace the raw function to replace function
+        self.obj=replace
+        self.raw=raw
+
+    def __call__(self,*args,**kwargs):
+        out=self.obj(self.raw,*args,**kwargs)
+        # if isinstance(out,Variable):
+        #     out=[out]
+        return out
+
+
+F.conv2d=Rp(F.conv2d,_conv2d)
+F.linear=Rp(F.linear,_linear)
+F.max_pool2d=Rp(F.max_pool2d,_max_pool2d)
+F.avg_pool2d=Rp(F.avg_pool2d,_avg_pool2d)
+F.dropout=Rp(F.dropout,_dropout)
+F.threshold=Rp(F.threshold,_threshold)
+F.batch_norm=Rp(F.batch_norm,_batch_norm)
+
+torch.split=Rp(torch.split,_split)
+torch.max=Rp(torch.max,_max)
+torch.cat=Rp(torch.cat,_cat)
+
+# TODO: other types of the view function
+raw_view=Variable.view
+Variable.view=_view
+raw__add__=Variable.__add__
+Variable.__add__=_add
+raw__iadd__=Variable.__iadd__
+Variable.__iadd__=_iadd
+raw__sub__=Variable.__sub__
+Variable.__sub__=_sub
+raw__isub__=Variable.__isub__
+Variable.__isub__=_isub
+
+def trans_net(net,input_var,name='NoNamePytorchModel'):
+    log.init([input_var])
+    log.cnet.net.name=name
+    log.cnet.net.input.extend([log.blobs(input_var)])
+    log.cnet.net.input_dim.extend(input_var.size())
+    out = net.forward(input_var)
+
+def save_prototxt(save_name):
+    log.cnet.save_prototxt(save_name)
+
+def save_caffemodel(save_name):
+    log.cnet.save(save_name)
