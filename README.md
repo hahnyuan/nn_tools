@@ -52,13 +52,16 @@ For example `python pytorch_analyser.py tmp/pytorch_analysis_test.py ResNet218 1
 
 The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 0.3.0) of pytorch. 
 NOTICE: The old version DO NOT supporting the 0.3.0.
+NOTICE: The transfer output will be somewhat different with the original model, caused by implementation difference.
 
 - Supporting layers types: conv2d, linear, max_pool2d, avg_pool2d, dropout, relu, threshold(only value=0), batch_norm
 - Supporting operations: torch.split, torch.max, torch.cat
 - Supporting tensor Variable operations: var.view, + (add), += (iadd), -(sub), -=(isub)
 
-The supported above can transfer many kinds of nets such as AlexNet(tested), VGG(tested), ResNet(tested), Inception_V3(tested)
+The supported above can transfer many kinds of nets, 
+such as AlexNet(tested), VGG(tested), ResNet(tested), Inception_V3(tested).
 
-The other layer types will be added soon.
+The supported layers concluded the most popular layers and operations.
+ The other layer types will be added soon, you can ask me to add them in issues.
 
-Example: please see file `example/vgg19_pytorch_to_caffe.py`. Just Run `python3 example/vgg19_pytorch_to_caffe.py`
+Example: please see file `example/alexnet_pytorch_to_caffe.py`. Just Run `python3 example/alexnet_pytorch_to_caffe.py`

@@ -108,7 +108,7 @@ def _split(raw,tensor, split_size, dim=0):
     log.cnet.add_layer(layer)
     return x
 
-def _pool(type,input,x,kernel_size,stride,padding,ceil_mode):
+def _pool(type,raw,input,x,kernel_size,stride,padding,ceil_mode):
     # TODO dilation,ceil_mode,return indices
     layer_name = log.add_layer(name='{}_pool'.format(type))
     top_blobs = log.add_blobs([x], name='{}_pool_blob'.format(type))
@@ -119,23 +119,25 @@ def _pool(type,input,x,kernel_size,stride,padding,ceil_mode):
     layer.pool_param(kernel_size=kernel_size, stride=kernel_size if stride is None else stride,
                      pad=padding, type=type.upper())
     log.cnet.add_layer(layer)
-    if ceil_mode==False:
-        if (input.size()[2]+2*_pair(padding)[0])%(_pair(kernel_size)[0])!=0 or \
-                                (input.size()[3]+2*_pair(padding)[1])%(_pair(kernel_size)[1])!=0:
-            print("WARNING: pytorch pooling ceil mode not open at layer '{}', "
-                  "which cause the output shape miss match "
-                  "because of the different implementation that ceil mode in caffe and the floor mode in pytorch.\n"
-                  "You can add the clip layer in caffe prototxt manually if shape mismatch error is caused in caffe. ".format(layer_name))
+    if ceil_mode==False and stride is not None:
+        oheight = (input.size()[2] - _pair(kernel_size)[0] + 2 * _pair(padding)[0]) % (_pair(stride)[0])
+        owidth = (input.size()[3] - _pair(kernel_size)[1] + 2 * _pair(padding)[1]) % (_pair(stride)[1])
+        if oheight!=0 or owidth!=0:
+            caffe_out=raw(input, kernel_size, stride, padding, ceil_mode=True)
+            print("WARNING: the output shape miss match at {}: "
+                  "input {} output---Pytorch:{}---Caffe:{}\n"
+                  "This is caused by the different implementation that ceil mode in caffe and the floor mode in pytorch.\n"
+                  "You can add the clip layer in caffe prototxt manually if shape mismatch error is caused in caffe. ".format(layer_name,input.size(),x.size(),caffe_out.size()))
 
 def _max_pool2d(raw,input, kernel_size, stride=None, padding=0, dilation=1,
                ceil_mode=False, return_indices=False):
     x = raw(input, kernel_size, stride, padding, dilation,ceil_mode, return_indices)
-    _pool('max',input, x, kernel_size, stride, padding,ceil_mode)
+    _pool('max',raw,input, x, kernel_size, stride, padding,ceil_mode)
     return x
 
 def _avg_pool2d(raw,input, kernel_size, stride = None, padding = 0, ceil_mode = False, count_include_pad = True):
     x = raw(input, kernel_size, stride, padding, ceil_mode, count_include_pad)
-    _pool('ave',input, x, kernel_size, stride, padding,ceil_mode)
+    _pool('ave',raw,input, x, kernel_size, stride, padding,ceil_mode)
     return x
 
 def _max(raw,*args):
@@ -322,11 +324,13 @@ raw__isub__=Variable.__isub__
 Variable.__isub__=_isub
 
 def trans_net(net,input_var,name='NoNamePytorchModel'):
+    print('Starting Transform, This will take a while')
     log.init([input_var])
     log.cnet.net.name=name
     log.cnet.net.input.extend([log.blobs(input_var)])
     log.cnet.net.input_dim.extend(input_var.size())
     out = net.forward(input_var)
+    print('Transform Completed')
 
 def save_prototxt(save_name):
     log.cnet.save_prototxt(save_name)
