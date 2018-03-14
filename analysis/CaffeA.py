@@ -24,6 +24,8 @@ def profiling(net, input=None):
                 out= fc(blob_dict[layer.bottom[0]],param.num_output,None,layer.name)
             if layer.type == 'ReLU':
                 out = Activation(blob_dict[layer.bottom[0]], 'relu', layer.name)
+            if layer.type == 'PReLU':
+                out = Activation(blob_dict[layer.bottom[0]], 'prelu', layer.name)
             if layer.type == 'Pooling':
                 param = layer.pooling_param
                 out = Pool(blob_dict[layer.bottom[0]], param.kernel_size, param.stride,
@@ -43,6 +45,8 @@ def profiling(net, input=None):
                 out =Scale (blob_dict[layer.bottom[0]], name = layer.name)
             if layer.type == 'Softmax':
                 out =Softmax (blob_dict[layer.bottom[0]], name = layer.name)
+            if layer.type == 'Dropout':
+                out =Dropout (blob_dict[layer.bottom[0]], name = layer.name)
             if out:
                 try:
                     not_ref.remove(blob_dict[layer.bottom[0]])

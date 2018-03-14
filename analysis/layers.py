@@ -88,6 +88,10 @@ class Activation(Base):
         self.dot=self.input_size
         self.add=self.pow=self.input_size*2
 
+    def prelu(self):
+        self.compare=self.input_size
+        self.dot=self.input_size
+
 
 class Sliding(Base):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False):
@@ -167,8 +171,8 @@ class Pool(Sliding):
         if pool_type=='max':
             self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
         elif pool_type=='avg':
-            self.add = np.prod(self.input)
-            self.dot = np.prod(self.out)
+            self.add = np.prod(self.input.shape)
+            self.dot = np.prod(self.out.shape)
         else:
             print("WARNING, NOT IMPLEMENT POOL TYPE %s PROFILING "%pool_type)
 pool=Pool
@@ -238,3 +242,10 @@ class Softmax(Base):
         self.add=self.input_size
         self.dot=self.input_size
         self.layer_info="softmax"
+
+class Dropout(Base):
+    def __init__(self,input,name='dropout'):
+        if isinstance(input,Base):
+            input=input()
+        Base.__init__(self,input,name=name)
+        self.out = input.new(self)
