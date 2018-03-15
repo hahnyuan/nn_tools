@@ -34,7 +34,7 @@ if __name__=="__main__":
     path,filename=os.path.split(args.path)
     filename=os.path.splitext(filename)[0]
     sys.path.insert(0,path)
-    exec('from %s import %s as Net'%(filename,args.class_name))
+    exec('from %s import %s as Net'%(filename,args.name))
     if isinstance(Net, nn.Module):
         net=Net
     elif issubclass(Net,nn.Module):
