@@ -12,7 +12,7 @@ if __name__=="__main__":
     parser.add_argument('path', help='python file location', type=str)
     parser.add_argument('name', help='the symbol object name or function that generate the symbol in your python file', type=str)
     parser.add_argument('shape',
-                        help='input shape of the network(split by comma `,`), image shape should be: batch,h,w,c',
+                        help='input shape of the network(split by comma `,`), image shape should be: batch,c,h,w',
                         type=str)
     parser.add_argument('--out', help='path to save the csv file', default='/tmp/mxnet_analyse.csv', type=str)
     parser.add_argument('--func_args', help='args parse to the function in your python file', default='', type=str)

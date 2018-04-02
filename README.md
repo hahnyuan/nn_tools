@@ -39,12 +39,26 @@ Supporting analyse the inheritors of torch.nn.Moudule class.
 Command：`pytorch_analyser.py [-h] [--out OUT] [--class_args ARGS] path name shape`
 - The path is the python file path which contaning your class.
 - The name is the class name or instance name in your python file.
-- The shape is the input shape of the network(split by comma `,`), in pytorch image shape should be: 
+- The shape is the input shape of the network(split by comma `,`), in pytorch image shape should be:
 batch_size, channel, image_height, image_width.
 - The out (optinal) is path to save the csv file, default is '/tmp/pytorch_analyse.csv'.
 - The class_args (optional) is the args to init the class in python file, default is empty.
 
 For example `python pytorch_analyser.py example/resnet_pytorch_analysis_example.py resnet18 1,3,224,224`
+
+
+## Mxnet
+Supporting analyse the inheritors of mxnet.sym.
+
+Command：`mxnet_analyser.py [-h] [--out OUT] [--func_args ARGS] [--func_kwargs FUNC_KWARGS] path name shape`
+- The path is the python file path which contaning your symbol definition.
+- the symbol object name or function that generate the symbol in your python file.
+- The shape is the input shape of the network(split by comma `,`), in mxnet image shape should be:
+batch_size, channel, image_height, image_width.
+- The out (optinal) is path to save the csv file, default is '/tmp/mxnet_analyse.csv'.
+- The func_args (optional) is the args to init the class in python file, default is empty.
+
+For example `python mxnet_analyser.py example/mobilenet_mxnet_symbol.py get_symbol 1,3,224,224`
 
 # Converter
 
