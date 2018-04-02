@@ -20,8 +20,8 @@ def analyse(module,raw_input):
             input.append(Blob(s))
     out=None
     if isinstance(module,nn.Conv2d):
-        out=conv(input[0],module.kernel_size,module.out_channels,
-                 module.stride,module.padding)
+        out=Conv(input[0],module.kernel_size,module.out_channels,
+                 module.stride,module.padding,group_size=module.groups)
     elif isinstance(module,nn.BatchNorm2d):
         out=Norm(input[0],'batch_norm')
     elif isinstance(module,nn.Linear):

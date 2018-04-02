@@ -36,11 +36,20 @@ class Base(object):
         return self.out
     def __setattr__(self, key, value):
         if key=='out' and value!=None:
-            self.blob_size=np.prod(value.data.shape)
+            if type(value) is list:
+                self.blob_size=0
+                for i in value:
+                    self.blob_size+=np.prod(i.data.shape)
+            else:
+                self.blob_size=np.prod(value.data.shape)
         return object.__setattr__(self, key,value)
     def __getattribute__(self, item):
         if item=='ops':
-            self.ops=self.pow+self.add+self.dot+self.compare
+            try:
+                self.ops=self.pow+self.add+self.dot+self.compare
+            except:
+                print("CRITICAL WARNING: Layer {} ops cannot be calculated, set to 0.".format(self.name))
+                self.ops=0
         return object.__getattribute__(self,item)
 
 class Norm(Base):
@@ -98,15 +107,15 @@ class Sliding(Base):
         # input is the instance of blob.Blob with shape (h,w,c) or (batch,h,w,c)
         super(Sliding,self).__init__(input,name=name)
         if len(self.input.shape)==3:
-            self.input_w=self.input[0]
-            self.input_h=self.input[1]
+            self.input_w=self.input[1]
+            self.input_h=self.input[2]
             self.batch_size=1
-            self.in_channel =self.input[2]
+            self.in_channel =self.input[0]
         elif len(self.input.shape)==4:
-            self.input_w = self.input[1]
-            self.input_h = self.input[2]
+            self.input_w = self.input[2]
+            self.input_h = self.input[3]
             self.batch_size = self.input[0]
-            self.in_channel = self.input[3]
+            self.in_channel = self.input[1]
         else:
             raise ValueError('Sliding must have a input with (w,h,c) or (batch,w,h,c)')
 
@@ -141,7 +150,7 @@ class Sliding(Base):
         else:
             out_w = np.ceil(float(self.input_w + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
             out_h = np.ceil(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
-        self.out=Blob([self.batch_size,out_w,out_h,num_out],self)
+        self.out=Blob([self.batch_size,num_out,out_w,out_h],self)
 
 class Conv(Sliding):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,
@@ -159,7 +168,6 @@ class Conv(Sliding):
         self.add = self.dot
         if activation:
             Activation(self.out,activation)
-conv=Conv
 
 class Pool(Sliding):
     def __init__(self,input,kernel_size,stride=1,pad=0,name='pool',pool_type='max',ceil=False):
@@ -216,6 +224,34 @@ class Eltwise(Base):
             self.compare=np.prod(self.out.shape)
         else:
             raise AttributeError('the Eltwise layer type must be sum, max or product')
+
+class Slice(Base):
+    def __init__(self,input,slice_point,axis,name='slice'):
+        super(Slice,self).__init__(input,name,)
+        self.out=[]
+        last=0
+        for p in slice_point:
+            print(p,list(input.shape))
+            shape1=list(input.shape)
+            shape1[axis] = p-last
+            last=p
+            self.out+=[Blob(shape1)]
+        shape1 = list(input.shape)
+        print(last,shape1,input.shape[axis])
+        shape1[axis] = input.shape[axis] - last
+        self.out += [Blob(shape1)]
+
+class Reshape(Base):
+    def __init__(self,input,shape,name='reshape'):
+        super(Reshape,self).__init__(input,name)
+        shape=list(shape)
+        for i in range(len(shape)):
+            if shape[i]==0:
+                shape[i]=input.data.shape[i]
+        out=np.array(input.data)
+        out.reshape(shape)
+        self.out=Blob(out.shape)
+
 
 class Concat(Base):
     def __init__(self,inputs,name='concat'):

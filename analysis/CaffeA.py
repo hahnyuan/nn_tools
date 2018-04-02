@@ -17,7 +17,7 @@ def profiling(net, input=None):
         if len(layer.top) == 1 and len(layer.bottom) == 1:
             if layer.type == 'Convolution':
                 param = layer.convolution_param
-                out = conv(blob_dict[layer.bottom[0]], param.kernel_size, param.num_output, param.stride,
+                out = Conv(blob_dict[layer.bottom[0]], param.kernel_size, param.num_output, param.stride,
                              param.pad, None, layer.name, group_size=param.group)
             if layer.type == 'InnerProduct':
                 param=layer.inner_product_param
@@ -47,6 +47,8 @@ def profiling(net, input=None):
                 out =Softmax (blob_dict[layer.bottom[0]], name = layer.name)
             if layer.type == 'Dropout':
                 out =Dropout (blob_dict[layer.bottom[0]], name = layer.name)
+            if layer.type == 'Reshape':
+                out =Reshape (blob_dict[layer.bottom[0]],shape=layer.reshape_param.shape.dim, name = layer.name)
             if out:
                 try:
                     not_ref.remove(blob_dict[layer.bottom[0]])
@@ -84,4 +86,17 @@ def profiling(net, input=None):
                 layers.append(out)
             else:
                 assert 'layer type: %s cannot be P' % (layer.type)
+        elif len(layer.top)>1:
+            if layer.type == 'Slice':
+                param=layer.slice_param
+                out =Slice (blob_dict[layer.bottom[0]], name = layer.name,slice_point=param.slice_point,axis=param.axis)
+            if out:
+                try:
+                    not_ref.remove(blob_dict[layer.bottom[0]])
+                except:
+                    pass
+                for o,top in zip(out(),layer.top):
+                    blob_dict[top] = o
+                    not_ref.append(blob_dict[top])
+                layers.append(out)
     return blob_dict,layers

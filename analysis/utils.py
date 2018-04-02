@@ -43,8 +43,7 @@ def save_csv(layers,csv_save_path,
     if print_detail:
         sum[0] = 'SUM'
         print_list.append(sum)
-        pprint.pprint(print_list,depth=3,width=200)
-        print(save_items)
+        print_table(print_list,save_items)
     else:
         print_list=[]
         for idx,item in enumerate(sum):
@@ -70,6 +69,41 @@ def get_layer_blox_from_blobs(blobs):
     for blob in blobs:
         creator_search(blob)
     return layers
+
+def print_table(datas,names):
+
+    types=[]
+    for i in datas[0]:
+        try:
+            i=int(float(i))
+            types.append('I')
+        except:
+            types.append('S')
+    for l in datas:
+        s=''
+        for i,t in zip(l,types):
+            if t=='I':
+
+                i=int(float(i))
+                s+=('%.1E'%i).center(10)
+            else:
+                i=str(i)
+                if len(i)>20:
+                    i=i[:17]+'...'
+                s+=i.center(20)
+            s+='|'
+        print(s)
+    s = ''
+    for i,t in zip(names,types):
+
+        if t == 'I':
+            s += i.center(10)
+        else:
+            if len(i) > 20:
+                i = i[:17] + '...'
+            s += i.center(20)
+        s += '|'
+    print(s)
 
 def print_by_blob(blobs,print_items=('name', 'layer_info', 'input', 'out', 'dot', 'add', 'compare','ops', 'weight_size','blob_size')):
     layers=get_layer_blox_from_blobs(blobs)
