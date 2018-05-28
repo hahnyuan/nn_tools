@@ -79,3 +79,12 @@ The supported layers concluded the most popular layers and operations.
  The other layer types will be added soon, you can ask me to add them in issues.
 
 Example: please see file `example/alexnet_pytorch_to_caffe.py`. Just Run `python3 example/alexnet_pytorch_to_caffe.py`
+
+
+# Some common functions
+
+## funcs.py
+
+- **get_iou(box_a, box_b)** intersection over union of two boxes
+- **Logger** print some str to a file and stdout with H M S
+
