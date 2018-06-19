@@ -233,6 +233,7 @@ class RandomContrast(object):
         if random.randint(2):
             alpha = random.uniform(self.lower, self.upper)
             image *= alpha
+            image=image.astype(np.uint8)
         if len(args):
             return (image, )
         else:
@@ -259,7 +260,7 @@ class RandomNoise(object):
         self.max_noise=max_noise
     def __call__(self,image,*args):
         noise=np.random.randint(-self.max_noise,self.max_noise,image.shape)
-        image=noise+image
+        image=np.uint8(noise+image)
         if len(args):
             return (image,*args)
         else:
