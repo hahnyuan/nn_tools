@@ -204,6 +204,19 @@ def _threshold(raw,input, threshold, value, inplace=False):
     log.cnet.add_layer(layer)
     return x
 
+def _prelu(raw, input, weight):
+    # for threshold or prelu
+    if weight.size()[0]!=1:
+        raise NotImplemented("PReLU size()[0]!=1 not implemented in caffe")
+    x = raw(input, weight)
+    name = log.add_layer(name='prelu')
+    log.add_blobs([x], name='prelu_blob')
+    layer = caffe_net.Layer_param(name=name, type='PReLU',
+                                  bottom=[log.blobs(input)], top=[log.blobs(x)])
+    layer.param.prelu_param.filler.value=weight.cpu().data.numpy()[0]
+    log.cnet.add_layer(layer)
+    return x
+
 def _batch_norm(raw,input, running_mean, running_var, weight=None, bias=None,
                training=False, momentum=0.1, eps=1e-5):
     # because the runing_mean and runing_var will be changed after the _batch_norm operation, we first save the parameters
@@ -230,7 +243,7 @@ def _batch_norm(raw,input, running_mean, running_var, weight=None, bias=None,
 # ----- for Variable operations --------
 
 def _view(input, *args):
-    x=raw_view(input, *args)
+    x=raw_view.view(input, *args)
     layer_name=log.add_layer(name='view')
     top_blobs=log.add_blobs([x],name='view_blob')
     layer=caffe_net.Layer_param(name=layer_name,type='Reshape',
@@ -282,6 +295,27 @@ def _isub(input, *args):
     layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
                                   bottom=[log.blobs(input),log.blobs(args[0])], top=top_blobs)
     layer.param.eltwise_param.operation = 1 # sum is 1
+    log.cnet.add_layer(layer)
+    return x
+
+def _mul(input, *args):
+    x = raw__sub__(input, *args)
+    layer_name = log.add_layer(name='mul')
+    top_blobs = log.add_blobs([x], name='mul_blob')
+    layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
+                                  bottom=[log.blobs(input), log.blobs(args[0])], top=top_blobs)
+    layer.param.eltwise_param.operation = 0  # product is 1
+    log.cnet.add_layer(layer)
+    return x
+
+def _imul(input, *args):
+    x = raw__isub__(input, *args)
+    x = x.clone()
+    layer_name = log.add_layer(name='mul')
+    top_blobs = log.add_blobs([x], name='mul_blob')
+    layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
+                                  bottom=[log.blobs(input), log.blobs(args[0])], top=top_blobs)
+    layer.param.eltwise_param.operation = 0  # product is 1
     layer.param.eltwise_param.coeff.extend([1., -1.])
     log.cnet.add_layer(layer)
     return x
@@ -305,6 +339,7 @@ F.max_pool2d=Rp(F.max_pool2d,_max_pool2d)
 F.avg_pool2d=Rp(F.avg_pool2d,_avg_pool2d)
 F.dropout=Rp(F.dropout,_dropout)
 F.threshold=Rp(F.threshold,_threshold)
+F.prelu=Rp(F.prelu,_prelu)
 F.batch_norm=Rp(F.batch_norm,_batch_norm)
 
 torch.split=Rp(torch.split,_split)
@@ -312,16 +347,38 @@ torch.max=Rp(torch.max,_max)
 torch.cat=Rp(torch.cat,_cat)
 
 # TODO: other types of the view function
-raw_view=Variable.view
-Variable.view=_view
-raw__add__=Variable.__add__
-Variable.__add__=_add
-raw__iadd__=Variable.__iadd__
-Variable.__iadd__=_iadd
-raw__sub__=Variable.__sub__
-Variable.__sub__=_sub
-raw__isub__=Variable.__isub__
-Variable.__isub__=_isub
+try:
+    raw_view=Variable.view
+    Variable.view=_view
+    raw__add__=Variable.__add__
+    Variable.__add__=_add
+    raw__iadd__=Variable.__iadd__
+    Variable.__iadd__=_iadd
+    raw__sub__=Variable.__sub__
+    Variable.__sub__=_sub
+    raw__isub__=Variable.__isub__
+    Variable.__isub__=_isub
+    raw__mul__ = Variable.__mul__
+    Variable.__mul__ = _mul
+    raw__imul__ = Variable.__imul__
+    Variable.__imul__ = _imul
+except:
+    for t in [torch.Tensor]:
+        raw_view = t.view
+        t.view = _view
+        raw__add__ = t.__add__
+        t.__add__ = _add
+        raw__iadd__ = t.__iadd__
+        t.__iadd__ = _iadd
+        raw__sub__ = t.__sub__
+        t.__sub__ = _sub
+        raw__isub__ = t.__isub__
+        t.__isub__ = _isub
+        raw__mul__ = t.__mul__
+        t.__mul__=_mul
+        raw__imul__ = t.__imul__
+        t.__imul__ = _imul
+
 
 def trans_net(net,input_var,name='NoNamePytorchModel'):
     print('Starting Transform, This will take a while')

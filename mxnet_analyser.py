@@ -15,8 +15,8 @@ if __name__=="__main__":
                         help='input shape of the network(split by comma `,`), image shape should be: batch,c,h,w',
                         type=str)
     parser.add_argument('--out', help='path to save the csv file', default='/tmp/mxnet_analyse.csv', type=str)
-    parser.add_argument('--func_args', help='args parse to the function in your python file', default='', type=str)
-    parser.add_argument('--func_kwargs', help='kwargs parse to the function, eg. a=1,b=2', default='', type=str)
+    parser.add_argument('--func_args', help='args tuple parse to the function, eg. --func_args (3,"ABC")', default='', type=str)
+    parser.add_argument('--func_kwargs', help='kwargs dict parse to the function, eg. --func_kwargs {a=1,c="OP"}', default='', type=str)
 
     args = parser.parse_args()
     path, filename = os.path.split(args.path)
@@ -28,16 +28,17 @@ if __name__=="__main__":
     if isinstance(sym, mxnet.sym.Symbol):
         sym = sym
     elif hasattr(sym,'__call__'):
-        _kwargs=args.func_kwargs.split(',')
-        kwargs=[]
-        for a in _kwargs:
-            if a=='':
-                continue
-            kwargs.append(a.split('='))
-        kwargs=dict(kwargs)
-        sym = sym(*args.func_args.split(),**kwargs)
+        if args.func_kwargs!='':
+            kwargs=eval(args.func_kwargs)
+        else:
+            kwargs={}
+        if args.func_args!='':
+            func_args=eval(args.func_args)
+        else:
+            func_args=[]
+        sym = sym(*func_args,**kwargs)
     else:
         assert ("Error, The sym is not a instance of mxnet.sym.Symbol or function")
     shape = [int(i) for i in args.shape.split(',')]
     profiling_symbol(sym,shape)
-    save_csv(tracked_layers, '/tmp/a.csv')
+    save_csv(tracked_layers, '/tmp/mxnet_analyse.csv')

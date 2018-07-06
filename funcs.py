@@ -42,3 +42,21 @@ def get_iou(box_a, box_b):
               (box_b[3]-box_b[1]))  # [A,B]
     union = area_a + area_b - inter
     return inter / union  # [A,B]
+
+def nms(bboxs,scores,thresh):
+    """
+    The box should be [x1,y1,x2,y2]
+    :param bboxs: multiple bounding boxes, Shape: [num_boxes,4]
+    :param scores: The score for the corresponding box
+    :return: keep inds
+    """
+    if len(bboxs)==0:
+        return []
+    order=scores.argsort()[::-1]
+    keep=[]
+    while order.size>0:
+        i=order[0]
+        keep.append(i)
+        ious=get_iou(bboxs[order],bboxs[i])
+        order=order[ious<=thresh]
+    return keep

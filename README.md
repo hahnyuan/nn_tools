@@ -68,9 +68,10 @@ The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 
 NOTICE: The old version DO NOT supporting the 0.3.0.
 NOTICE: The transfer output will be somewhat different with the original model, caused by implementation difference.
 
-- Supporting layers types: conv2d, linear, max_pool2d, avg_pool2d, dropout, relu, threshold(only value=0), batch_norm
+- Supporting layers types: conv2d, linear, max_pool2d, avg_pool2d, dropout, relu, prelu, threshold(only value=0), batch_norm
 - Supporting operations: torch.split, torch.max, torch.cat
 - Supporting tensor Variable operations: var.view, + (add), += (iadd), -(sub), -=(isub)
+\* (mul) *= (imul)
 
 The supported above can transfer many kinds of nets, 
 such as AlexNet(tested), VGG(tested), ResNet(tested), Inception_V3(tested).

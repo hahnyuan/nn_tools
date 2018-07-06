@@ -155,9 +155,8 @@ class RandomSaturation(object):
         else:
             return image
 
-
 class RandomHue(object):
-    def __init__(self, delta=18.0):
+    def __init__(self, delta=15.0):
         assert delta >= 0.0 and delta <= 255
         self.delta = delta
 
@@ -166,6 +165,24 @@ class RandomHue(object):
             image[:, :, 0] += np.uint8(random.uniform(-self.delta, self.delta))
             image[:, :, 0][image[:, :, 0] > 255.0] -= 255
             image[:, :, 0][image[:, :, 0] < 0.0] += 255
+        if len(args):
+            return (image,)
+        else:
+            return image
+
+class RandomChannel(object):
+    def __init__(self, delta=15.0):
+        assert delta >= 0.0 and delta <= 255
+        self.delta = delta
+
+    def __call__(self, image, *args):
+        channels=image.shape[-1]
+        random_switch=np.random.randint(0,2,channels)
+        for i in range(channels):
+            if random_switch[i]:
+                image[:, :, i] += np.uint8(random.uniform(-self.delta, self.delta))
+                image[image > 255.0] = 255
+                image[image < 0.0] = 0
         if len(args):
             return (image,)
         else:
@@ -259,8 +276,9 @@ class RandomNoise(object):
     def __init__(self,max_noise=3):
         self.max_noise=max_noise
     def __call__(self,image,*args):
-        noise=np.random.randint(-self.max_noise,self.max_noise,image.shape)
-        image=np.uint8(noise+image)
+        if np.random.randint(2):
+            noise=np.random.randint(-self.max_noise,self.max_noise,image.shape)
+            image=np.uint8(noise+image)
         if len(args):
             return (image,*args)
         else:

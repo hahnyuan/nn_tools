@@ -2,6 +2,14 @@ from __future__ import absolute_import
 from . import caffe_pb2 as pb
 import numpy as np
 
+def _unpair(item,raise_error=True):
+    if hasattr(item,'__iter__'):
+        for i in item:
+            if i!=item[0] and raise_error:
+                raise ValueError("number in item {} must be the same".format(item))
+        return item[0]
+    return item
+
 class Layer_param():
     def __init__(self,name='',type='',top=(),bottom=()):
         self.param=pb.LayerParameter()
@@ -53,8 +61,8 @@ class Layer_param():
     def pool_param(self,type='MAX',kernel_size=2,stride=2,pad=None):
         pool_param=pb.PoolingParameter()
         pool_param.pool=pool_param.PoolMethod.Value(type)
-        pool_param.kernel_size=kernel_size
-        pool_param.stride=stride
+        pool_param.kernel_size=_unpair(kernel_size)
+        pool_param.stride=_unpair(stride)
         if pad:
             pool_param.pad=pad
         self.param.pooling_param.CopyFrom(pool_param)
