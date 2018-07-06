@@ -206,14 +206,16 @@ def _threshold(raw,input, threshold, value, inplace=False):
 
 def _prelu(raw, input, weight):
     # for threshold or prelu
-    if weight.size()[0]!=1:
-        raise NotImplemented("PReLU size()[0]!=1 not implemented in caffe")
     x = raw(input, weight)
     name = log.add_layer(name='prelu')
     log.add_blobs([x], name='prelu_blob')
     layer = caffe_net.Layer_param(name=name, type='PReLU',
                                   bottom=[log.blobs(input)], top=[log.blobs(x)])
-    layer.param.prelu_param.filler.value=weight.cpu().data.numpy()[0]
+    if weight.size()[0]==1:
+        layer.param.prelu_param.channel_shared=True
+        layer.add_data(weight.cpu().data.numpy()[0])
+    else:
+        layer.add_data(weight.cpu().data.numpy())
     log.cnet.add_layer(layer)
     return x
 
@@ -363,6 +365,7 @@ try:
     raw__imul__ = Variable.__imul__
     Variable.__imul__ = _imul
 except:
+    # for new version 0.4.0
     for t in [torch.Tensor]:
         raw_view = t.view
         t.view = _view

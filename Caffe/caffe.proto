@@ -1,5 +1,4 @@
 syntax = "proto2";
-
 package caffe;
 
 // Specifies the shape (dimensions) of a Blob.

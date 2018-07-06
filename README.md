@@ -64,8 +64,7 @@ For example `python mxnet_analyser.py example/mobilenet_mxnet_symbol.py get_symb
 
 ## Pytorch to Caffe
 
-The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 0.3.0) of pytorch. 
-NOTICE: The old version DO NOT supporting the 0.3.0.
+The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 0.4.0) of pytorch.
 NOTICE: The transfer output will be somewhat different with the original model, caused by implementation difference.
 
 - Supporting layers types: conv2d, linear, max_pool2d, avg_pool2d, dropout, relu, prelu, threshold(only value=0), batch_norm
@@ -87,5 +86,6 @@ Example: please see file `example/alexnet_pytorch_to_caffe.py`. Just Run `python
 ## funcs.py
 
 - **get_iou(box_a, box_b)** intersection over union of two boxes
+- **nms(bboxs,scores,thresh)** Non-maximum suppression
 - **Logger** print some str to a file and stdout with H M S
 
