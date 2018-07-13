@@ -19,6 +19,8 @@ How to support a new layer type:
 
 # TODO: support the inplace output of the layers
 
+
+NET_INITTED=False
 class TransLog(object):
     def __init__(self):
         """
@@ -61,7 +63,11 @@ class TransLog(object):
         var=id(var)
         if self.debug:
             print("{}:{} getting".format(var, self._blobs[var]))
-        return self._blobs[var]
+        try:
+            return self._blobs[var]
+        except:
+            print("WARNING: CANNOT FOUND blob {}".format(var))
+            return None
 
 log=TransLog()
 
@@ -219,6 +225,19 @@ def _prelu(raw, input, weight):
     log.cnet.add_layer(layer)
     return x
 
+def _softmax(raw, input, dim=None, _stacklevel=3):
+    # for F.softmax
+    x=raw(input, dim=dim)
+    if dim is None:
+        dim=F._get_softmax_dim('softmax', input.dim(), _stacklevel)
+    name = log.add_layer(name='softmax')
+    log.add_blobs([x], name='softmax_blob')
+    layer = caffe_net.Layer_param(name=name, type='Softmax',
+                                  bottom=[log.blobs(input)], top=[log.blobs(x)])
+    layer.param.softmax_param.axis=dim
+    log.cnet.add_layer(layer)
+    return x
+
 def _batch_norm(raw,input, running_mean, running_var, weight=None, bias=None,
                training=False, momentum=0.1, eps=1e-5):
     # because the runing_mean and runing_var will be changed after the _batch_norm operation, we first save the parameters
@@ -245,7 +264,9 @@ def _batch_norm(raw,input, running_mean, running_var, weight=None, bias=None,
 # ----- for Variable operations --------
 
 def _view(input, *args):
-    x=raw_view.view(input, *args)
+    x=raw_view(input, *args)
+    if not NET_INITTED:
+        return x
     layer_name=log.add_layer(name='view')
     top_blobs=log.add_blobs([x],name='view_blob')
     layer=caffe_net.Layer_param(name=layer_name,type='Reshape',
@@ -259,6 +280,8 @@ def _view(input, *args):
 
 def _add(input, *args):
     x = raw__add__(input, *args)
+    if not NET_INITTED:
+        return x
     layer_name = log.add_layer(name='add')
     top_blobs = log.add_blobs([x], name='add_blob')
     layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
@@ -269,6 +292,8 @@ def _add(input, *args):
 
 def _iadd(input, *args):
     x = raw__iadd__(input, *args)
+    if not NET_INITTED:
+        return x
     x=x.clone()
     layer_name = log.add_layer(name='add')
     top_blobs = log.add_blobs([x], name='add_blob')
@@ -280,6 +305,8 @@ def _iadd(input, *args):
 
 def _sub(input, *args):
     x = raw__sub__(input, *args)
+    if not NET_INITTED:
+        return x
     layer_name = log.add_layer(name='sub')
     top_blobs = log.add_blobs([x], name='sub_blob')
     layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
@@ -291,6 +318,8 @@ def _sub(input, *args):
 
 def _isub(input, *args):
     x = raw__isub__(input, *args)
+    if not NET_INITTED:
+        return x
     x=x.clone()
     layer_name = log.add_layer(name='sub')
     top_blobs = log.add_blobs([x], name='sub_blob')
@@ -302,6 +331,8 @@ def _isub(input, *args):
 
 def _mul(input, *args):
     x = raw__sub__(input, *args)
+    if not NET_INITTED:
+        return x
     layer_name = log.add_layer(name='mul')
     top_blobs = log.add_blobs([x], name='mul_blob')
     layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
@@ -312,6 +343,8 @@ def _mul(input, *args):
 
 def _imul(input, *args):
     x = raw__isub__(input, *args)
+    if not NET_INITTED:
+        return x
     x = x.clone()
     layer_name = log.add_layer(name='mul')
     top_blobs = log.add_blobs([x], name='mul_blob')
@@ -329,6 +362,8 @@ class Rp(object):
         self.raw=raw
 
     def __call__(self,*args,**kwargs):
+        if not NET_INITTED:
+            return self.raw(*args,**kwargs)
         out=self.obj(self.raw,*args,**kwargs)
         # if isinstance(out,Variable):
         #     out=[out]
@@ -343,6 +378,7 @@ F.dropout=Rp(F.dropout,_dropout)
 F.threshold=Rp(F.threshold,_threshold)
 F.prelu=Rp(F.prelu,_prelu)
 F.batch_norm=Rp(F.batch_norm,_batch_norm)
+F.softmax=Rp(F.softmax,_softmax)
 
 torch.split=Rp(torch.split,_split)
 torch.max=Rp(torch.max,_max)
@@ -389,6 +425,8 @@ def trans_net(net,input_var,name='NoNamePytorchModel'):
     log.cnet.net.name=name
     log.cnet.net.input.extend([log.blobs(input_var)])
     log.cnet.net.input_dim.extend(input_var.size())
+    global NET_INITTED
+    NET_INITTED=True
     out = net.forward(input_var)
     print('Transform Completed')
 

@@ -22,7 +22,7 @@ class Base(object):
             self.muti_input = False
         self.name=name
         self.weight_size=0
-        self.blob_size=None
+        self.activation_size=None
         self.dot=0
         self.add=0
         self.pow=0
@@ -37,11 +37,11 @@ class Base(object):
     def __setattr__(self, key, value):
         if key=='out' and value!=None:
             if type(value) is list:
-                self.blob_size=0
+                self.activation_size=0
                 for i in value:
-                    self.blob_size+=np.prod(i.data.shape)
+                    self.activation_size+=np.prod(i.shape)
             else:
-                self.blob_size=np.prod(value.data.shape)
+                self.activation_size=np.prod(value.shape)
         return object.__setattr__(self, key,value)
     def __getattribute__(self, item):
         if item=='ops':
@@ -171,18 +171,19 @@ class Conv(Sliding):
 
 class Pool(Sliding):
     def __init__(self,input,kernel_size,stride=1,pad=0,name='pool',pool_type='max',ceil=False):
+        # pool_type: 0 is max, 1 is avg/ave in Caffe
         if isinstance(input,Base):
             input=input()
         Sliding.__init__(self,input,kernel_size,input[3],stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
-        if pool_type=='max':
+        if pool_type in ['max',0]:
             self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
-        elif pool_type=='avg':
+        elif pool_type in ['avg','ave',1]:
             self.add = np.prod(self.input.shape)
             self.dot = np.prod(self.out.shape)
         else:
-            print("WARNING, NOT IMPLEMENT POOL TYPE %s PROFILING "%pool_type)
+            print("WARNING, NOT IMPLEMENT POOL TYPE %s PROFILING at %s, CONTINUE"%(pool_type,name))
 pool=Pool
 
 class InnerProduct(Base):
@@ -209,7 +210,7 @@ class Permute(Base):
 class Flatten(Base):
     def __init__(self,input, name='permute'):
         super(Flatten, self).__init__(input, name)
-        dim=[np.prod(input.data.shape)]
+        dim=[np.prod(input.shape)]
         self.out = Blob(dim, self)
 
 class Eltwise(Base):
@@ -247,20 +248,18 @@ class Reshape(Base):
         shape=list(shape)
         for i in range(len(shape)):
             if shape[i]==0:
-                shape[i]=input.data.shape[i]
-        out=np.array(input.data)
-        out.reshape(shape)
-        self.out=Blob(out.shape)
+                shape[i]=input.shape[i]
+        self.out=Blob(shape)
 
 
 class Concat(Base):
-    def __init__(self,inputs,name='concat'):
+    def __init__(self,inputs,axis,name='concat'):
         super(Concat,self).__init__(inputs,name,)
         outc=0
         for input in inputs:
-            outc+=input[-1]
-        dim=list(inputs[0].shape[:-1])+[outc]
-        self.out=Blob(dim,self)
+            outc+=input[axis]
+        self.out=Blob(inputs[0].shape,self)
+        self.out.shape[axis]=outc
 
 class Scale(Base):
     def __init__(self, input, factor=None, name='scale'):

@@ -4,19 +4,23 @@ import numpy as np
 class Blob():
     def __init__(self,shape,father=None):
         shape=[int(i) for i in shape]
-        self.data=np.ones(shape)
-        self.shape=self.data.shape
+        self._data=None
+        self.shape=[int(i) for i in list(shape)]
         self.father=type(father)==list and father or [father]
+
+    @property
+    def data(self):
+        raise NotImplementedError('Blob.data is removed from this version of nn_tools, you should use .shape')
 
     @property
     def size(self):
         return np.prod(self.shape)
 
     def new(self,father):
-        return Blob(self.data.shape,father)
+        return Blob(self.shape,father)
     def __getitem__(self, key):
-        return self.data.shape[key]
+        return self.shape[key]
     def __str__(self):
-        return str(self.data.shape)
+        return str(self.shape)
     def flaten(self):
-        return Blob([np.prod(self.data.shape)])
+        return Blob([np.prod(self.shape)])

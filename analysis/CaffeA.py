@@ -74,7 +74,8 @@ def profiling(net, input=None):
                 out = ROIPool(blob_dict[layer.bottom[0]],blob_dict[layer.bottom[1]],
                               param.pooled_w,param.pooled_h,layer.name)
             if layer.type == "Concat":
-                out = Concat([blob_dict[bottom] for bottom in layer.bottom],layer.name)
+                param = layer.concat_param
+                out = Concat([blob_dict[bottom] for bottom in layer.bottom],param.axis,layer.name)
             if out:
                 for bottom in layer.bottom:
                     try:
