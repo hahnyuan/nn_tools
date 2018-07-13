@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import torch
 import argparse
 import sys,os
-from analysis.PytorchA import profiling
+from analysis.PytorchA import analyse
 from analysis.utils import save_csv
 from torch.autograd import Variable
 import torch.nn as nn
@@ -43,7 +43,7 @@ if __name__=="__main__":
         assert("Error, The Net is not a instance of nn.Module or subclass of nn.Module")
     shape = [int(i) for i in args.shape.split(',')]
     x = Variable(torch.rand(shape))
-    blob_dict, layers = profiling(net, x)
+    blob_dict, layers = analyse(net, x)
     save_csv(layers, args.out)
 
 

@@ -10,7 +10,7 @@ from . import save_csv
 tracked_layers=[]
 blob_dict=[]
 
-def analyse(module,raw_input):
+def _analyse(module,raw_input):
     input=[]
     for i in raw_input:
         s = i.size()
@@ -36,8 +36,8 @@ def analyse(module,raw_input):
         out = Activation(input[0],'relu')
     if out:
         tracked_layers.append(out)
-    # else:
-    #     print 'WARNING: skip layer %s' % str(module)
+    else:
+        print('WARNING: skip Module {}' .format(module))
 
 def module_hook(module, input, output):
     # print('module hook')
@@ -46,19 +46,36 @@ def module_hook(module, input, output):
     #     print ('input',i.size())
     # for i in output:
     #     print('out', i.size())
-    analyse(module,input)
+    _analyse(module,input)
 
 def register(module):
     module.register_forward_hook(module_hook)
 
-def profiling(net,input):
+def analyse(net, inputs):
+    """
+    analyse the network given input
+    :param net: torch.nn.Module
+    :param inputs: torch.Variable, torch.Tensor or list of them
+    :return: blob_dict, tracked_layers
+    """
     del tracked_layers[:]
     del blob_dict[:]
-    if isinstance(input,dict):
-        assert NotImplementedError
-    else:
-        assert isinstance(input,Variable),\
-            "profiling input must be Variable or list of Variable"
+    if inputs is not list:
+        raw_inputs=[inputs]
+    _inputs=[]
+    for i in raw_inputs:
+        if isinstance(i,Variable):
+            _inputs.append(i)
+        elif isinstance(i,torch.Tensor):
+            _inputs.append(Variable(i))
+        elif isinstance(i,np.ndarray):
+            _inputs.append(Variable(torch.Tensor(i)))
+        else:
+            raise NotImplementedError("Not Support the input type {}".format(type(i)))
     net.apply(register)
-    net.forward(input)
+    net.forward(*_inputs)
     return blob_dict,tracked_layers
+
+def profilling(net,input):
+    """ Old API of analyse """
+    return analyse(net,input)
