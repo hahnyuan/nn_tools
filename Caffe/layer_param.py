@@ -2,13 +2,24 @@ from __future__ import absolute_import
 from . import caffe_pb2 as pb
 import numpy as np
 
-def _unpair(item,raise_error=True):
+def pair_process(item,strict_one=True):
     if hasattr(item,'__iter__'):
         for i in item:
-            if i!=item[0] and raise_error:
-                raise ValueError("number in item {} must be the same".format(item))
+            if i!=item[0]:
+                if strict_one:
+                    raise ValueError("number in item {} must be the same".format(item))
+                else:
+                    print("IMPORTANT WARNING: number in item {} must be the same".format(item))
         return item[0]
     return item
+
+def pair_reduce(item):
+    if hasattr(item,'__iter__'):
+        for i in item:
+            if i!=item[0]:
+                return item
+        return [item[0]]
+    return [item]
 
 class Layer_param():
     def __init__(self,name='',type='',top=(),bottom=()):
@@ -47,22 +58,22 @@ class Layer_param():
             raise TypeError('the layer type must be Convolution if you want set conv param')
         conv_param=pb.ConvolutionParameter()
         conv_param.num_output=num_output
-        conv_param.kernel_size.extend(kernel_size)
-        conv_param.stride.extend(stride)
-        conv_param.pad.extend(pad)
+        conv_param.kernel_size.extend(pair_reduce(kernel_size))
+        conv_param.stride.extend(pair_reduce(stride))
+        conv_param.pad.extend(pair_reduce(pad))
         conv_param.bias_term=bias_term
         conv_param.weight_filler.type=weight_filler_type
         if bias_term:
             conv_param.bias_filler.type = bias_filler_type
         if dilation:
-            conv_param.dilation.extend(dilation)
+            conv_param.dilation.extend(pair_reduce(dilation))
         self.param.convolution_param.CopyFrom(conv_param)
 
     def pool_param(self,type='MAX',kernel_size=2,stride=2,pad=None):
         pool_param=pb.PoolingParameter()
         pool_param.pool=pool_param.PoolMethod.Value(type)
-        pool_param.kernel_size=_unpair(kernel_size)
-        pool_param.stride=_unpair(stride)
+        pool_param.kernel_size=pair_process(kernel_size)
+        pool_param.stride=pair_process(stride)
         if pad:
             pool_param.pad=pad
         self.param.pooling_param.CopyFrom(pool_param)
