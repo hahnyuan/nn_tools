@@ -78,7 +78,7 @@ def _conv2d(raw,input, weight, bias=None, stride=1, padding=0, dilation=1, group
     layer=caffe_net.Layer_param(name=name, type='Convolution',
                                 bottom=[log.blobs(input)], top=[log.blobs(x)])
     layer.conv_param(x.size()[1],weight.size()[2:],stride=_pair(stride),
-                     pad=_pair(padding),dilation=_pair(dilation),bias_term=True if bias else False)
+                     pad=_pair(padding),dilation=_pair(dilation),bias_term=bias is not None)
     if bias is not None:
         layer.add_data(weight.cpu().data.numpy(),bias.cpu().data.numpy())
     else:
