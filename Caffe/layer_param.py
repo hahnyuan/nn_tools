@@ -43,7 +43,7 @@ class Layer_param():
 
     def conv_param(self, num_output, kernel_size, stride=(1), pad=(0,),
                    weight_filler_type='xavier', bias_filler_type='constant',
-                   bias_term=True, dilation=None):
+                   bias_term=True, dilation=None,groups=None):
         """
         add a conv_param layer if you spec the layer type "Convolution"
         Args:
@@ -67,6 +67,8 @@ class Layer_param():
             conv_param.bias_filler.type = bias_filler_type
         if dilation:
             conv_param.dilation.extend(pair_reduce(dilation))
+        if groups:
+            conv_param.group=groups
         self.param.convolution_param.CopyFrom(conv_param)
 
     def pool_param(self,type='MAX',kernel_size=2,stride=2,pad=None):
