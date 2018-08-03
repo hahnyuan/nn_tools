@@ -174,7 +174,7 @@ class Pool(Sliding):
         # pool_type: 0 is max, 1 is avg/ave in Caffe
         if isinstance(input,Base):
             input=input()
-        Sliding.__init__(self,input,kernel_size,input[3],stride,pad,name=name,ceil=ceil)
+        Sliding.__init__(self,input,kernel_size,input[1],stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
         if pool_type in ['max',0]:
