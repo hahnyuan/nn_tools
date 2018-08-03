@@ -106,19 +106,12 @@ class Sliding(Base):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False):
         # input is the instance of blob.Blob with shape (h,w,c) or (batch,h,w,c)
         super(Sliding,self).__init__(input,name=name)
-        if len(self.input.shape)==3:
-            self.input_w=self.input[1]
-            self.input_h=self.input[2]
-            self.batch_size=1
-            self.in_channel =self.input[0]
-        elif len(self.input.shape)==4:
-            self.input_w = self.input[2]
-            self.input_h = self.input[3]
-            self.batch_size = self.input[0]
-            self.in_channel = self.input[1]
-        else:
-            raise ValueError('Sliding must have a input with (w,h,c) or (batch,w,h,c)')
-
+        if self.input.dim!=4:
+            raise ValueError('Sliding must have a input with (batch,w,h,c)')
+        self.input_w = self.input.w
+        self.input_h = self.input.h
+        self.batch_size = self.input.batch_size
+        self.in_channel = self.input.c
 
         if type(kernel_size)==int:
             self.kernel_size=[kernel_size,kernel_size]
@@ -150,7 +143,7 @@ class Sliding(Base):
         else:
             out_w = np.ceil(float(self.input_w + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
             out_h = np.ceil(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
-        self.out=Blob([self.batch_size,num_out,out_w,out_h],self)
+        self.out=Blob([self.batch_size,out_w,out_h,num_out],self)
 
 class Conv(Sliding):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,
@@ -174,7 +167,7 @@ class Pool(Sliding):
         # pool_type: 0 is max, 1 is avg/ave in Caffe
         if isinstance(input,Base):
             input=input()
-        Sliding.__init__(self,input,kernel_size,input[1],stride,pad,name=name,ceil=ceil)
+        Sliding.__init__(self,input,kernel_size,input.c,stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
         if pool_type in ['max',0]:

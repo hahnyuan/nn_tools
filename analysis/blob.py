@@ -16,6 +16,25 @@ class Blob():
     def size(self):
         return np.prod(self.shape)
 
+    @property
+    def w(self):
+        return self.shape[2]
+    @property
+    def h(self):
+        return self.shape[1]
+
+    @property
+    def c(self):
+        return self.shape[3]
+
+    @property
+    def batch_size(self):
+        return self.shape[0]
+
+    @property
+    def dim(self):
+        return len(self.shape)
+
     def new(self,father):
         return Blob(self.shape,father)
     def __getitem__(self, key):
