@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import traceback
 from Caffe import caffe_net
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -21,16 +22,30 @@ How to support a new layer type:
 
 
 NET_INITTED=False
+
+
+class Blob_LOG():
+    def __init__(self):
+        self.data={}
+    def __setitem__(self, key, value):
+        self.data[key]=value
+    def __getitem__(self, key):
+        return self.data[key]
+    def __len__(self):
+        return len(self.data)
+
 class TransLog(object):
+
     def __init__(self):
         """
         doing init() with inputs Variable before using it
         """
         self.layers={}
-        self._blobs={}
+        self._blobs=Blob_LOG()
         self._blobs_data=[]
         self.cnet=caffe_net.Caffemodel('')
         self.debug=False
+        self.pytorch_layer_name=None
 
     def init(self,inputs):
         """
@@ -38,9 +53,14 @@ class TransLog(object):
         """
         self.add_blobs(inputs)
     def add_layer(self,name='layer'):
+        name='noname_'+name
         if name in self.layers:
             return self.layers[name]
-        name='{}{}'.format(name,len(self.layers))
+        if self.pytorch_layer_name:
+            name=self.pytorch_layer_name
+            self.pytorch_layer_name=None
+        else:
+            name='{}{}'.format(name,len(self.layers))
         self.layers[name]=name
         if self.debug:
             print("{} was added to layers".format(self.layers[name]))
@@ -50,14 +70,15 @@ class TransLog(object):
         rst=[]
         for blob in blobs:
             self._blobs_data.append(blob) # to block the memory address be rewrited
-            blob=int(id(blob))
+            blob_id=int(id(blob))
             if with_num:
                 rst.append('{}{}'.format(name,len(self._blobs)))
             else:
                 rst.append('{}'.format(name))
             if self.debug:
-                print("{}:{} was added to blobs".format(blob,rst[-1]))
-            self._blobs[blob]=rst[-1]
+                print("{}:{} was added to blobs".format(blob_id,rst[-1]))
+            print('Add blob {} : {}'.format(rst[-1].center(21),blob.size()))
+            self._blobs[blob_id]=rst[-1]
         return rst
     def blobs(self, var):
         var=id(var)
@@ -70,6 +91,8 @@ class TransLog(object):
             return None
 
 log=TransLog()
+
+layer_names={}
 
 def _conv2d(raw,input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
     x=raw(input,weight,bias,stride,padding,dilation,groups)
@@ -177,7 +200,7 @@ def _cat(raw,inputs, dimension=0):
     return x
 
 def _dropout(raw,input,p=0.5, training=False, inplace=False):
-    x=raw(input,p, training, inplace)
+    x=raw(input,p, training, False)
     bottom_blobs=[log.blobs(input)]
     layer_name=log.add_layer(name='dropout')
     top_blobs=log.add_blobs([x],name=bottom_blobs[0],with_num=False)
@@ -191,7 +214,7 @@ def _dropout(raw,input,p=0.5, training=False, inplace=False):
 def _threshold(raw,input, threshold, value, inplace=False):
     # for threshold or relu
     if threshold==0 and value==0:
-        x = raw(input,threshold, value, inplace)
+        x = raw(input,threshold, value, False)
         name = log.add_layer(name='relu')
         log.add_blobs([x], name='relu_blob')
         layer = caffe_net.Layer_param(name=name, type='ReLU',
@@ -200,13 +223,23 @@ def _threshold(raw,input, threshold, value, inplace=False):
         return x
     if value!=0:
         raise NotImplemented("value !=0 not implemented in caffe")
-    x=raw(input,input, threshold, value, inplace)
+    x=raw(input,input, threshold, value, False)
     bottom_blobs=[log.blobs(input)]
     layer_name=log.add_layer(name='threshold')
     top_blobs=log.add_blobs([x],name='threshold_blob')
     layer=caffe_net.Layer_param(name=layer_name,type='Threshold',
                                 bottom=bottom_blobs,top=top_blobs)
     layer.param.threshold_param.threshold = threshold
+    log.cnet.add_layer(layer)
+    return x
+
+def _relu(raw, input, inplace=False):
+    # for threshold or prelu
+    x = raw(input, False)
+    name = log.add_layer(name='relu')
+    log.add_blobs([x], name='relu_blob')
+    layer = caffe_net.Layer_param(name=name, type='ReLU',
+                                  bottom=[log.blobs(input)], top=[log.blobs(x)])
     log.cnet.add_layer(layer)
     return x
 
@@ -275,6 +308,25 @@ def _view(input, *args):
     dims=list(args)
     dims[0]=0 # the first dim should be batch_size
     layer.param.reshape_param.shape.CopyFrom(caffe_net.pb.BlobShape(dim=dims))
+    log.cnet.add_layer(layer)
+    return x
+
+def _mean(input, *args,**kwargs):
+    x=raw_mean(input, *args,**kwargs)
+    if not NET_INITTED:
+        return x
+    layer_name=log.add_layer(name='mean')
+    top_blobs=log.add_blobs([x],name='mean_blob')
+    layer=caffe_net.Layer_param(name=layer_name,type='Reduction',
+                                bottom=[log.blobs(input)],top=top_blobs)
+    if len(args)==1:
+        dim=args[0]
+    elif 'dim' in kwargs:
+        dim=kwargs['dim']
+    else:
+        raise NotImplementedError('mean operation must specify a dim')
+    layer.param.reduction_param.operation=4
+    layer.param.reduction_param.axis=dim
     log.cnet.add_layer(layer)
     return x
 
@@ -364,14 +416,21 @@ class Rp(object):
     def __call__(self,*args,**kwargs):
         if not NET_INITTED:
             return self.raw(*args,**kwargs)
+        for stack in traceback.walk_stack(None):
+            if 'self' in stack[0].f_locals:
+                layer=stack[0].f_locals['self']
+                if layer in layer_names:
+                    log.pytorch_layer_name=layer_names[layer]
+                    print(layer_names[layer])
+                    break
         out=self.obj(self.raw,*args,**kwargs)
         # if isinstance(out,Variable):
         #     out=[out]
         return out
 
-
 F.conv2d=Rp(F.conv2d,_conv2d)
 F.linear=Rp(F.linear,_linear)
+F.relu=Rp(F.relu,_relu)
 F.max_pool2d=Rp(F.max_pool2d,_max_pool2d)
 F.avg_pool2d=Rp(F.avg_pool2d,_avg_pool2d)
 F.dropout=Rp(F.dropout,_dropout)
@@ -388,6 +447,8 @@ torch.cat=Rp(torch.cat,_cat)
 try:
     raw_view=Variable.view
     Variable.view=_view
+    raw_mean=Variable.mean
+    Variable.mean=_mean
     raw__add__=Variable.__add__
     Variable.__add__=_add
     raw__iadd__=Variable.__iadd__
@@ -405,6 +466,8 @@ except:
     for t in [torch.Tensor]:
         raw_view = t.view
         t.view = _view
+        raw_mean = t.mean
+        t.mean = _mean
         raw__add__ = t.__add__
         t.__add__ = _add
         raw__iadd__ = t.__iadd__
@@ -419,7 +482,7 @@ except:
         t.__imul__ = _imul
 
 
-def trans_net(net,input_var,name='NoNamePytorchModel'):
+def trans_net(net,input_var,name='TransferedPytorchModel'):
     print('Starting Transform, This will take a while')
     log.init([input_var])
     log.cnet.net.name=name
@@ -427,6 +490,8 @@ def trans_net(net,input_var,name='NoNamePytorchModel'):
     log.cnet.net.input_dim.extend(input_var.size())
     global NET_INITTED
     NET_INITTED=True
+    for name,layer in net.named_modules():
+        layer_names[layer]=name
     out = net.forward(input_var)
     print('Transform Completed')
 

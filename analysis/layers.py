@@ -104,7 +104,7 @@ class Activation(Base):
 
 class Sliding(Base):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False):
-        # input is the instance of blob.Blob with shape (h,w,c) or (batch,h,w,c)
+        # input is the instance of blob.Blob with shape (c,h,w) or (batch,c,h,w)
         super(Sliding,self).__init__(input,name=name)
         if self.input.dim!=4:
             raise ValueError('Sliding must have a input with (batch,w,h,c)')
@@ -143,7 +143,7 @@ class Sliding(Base):
         else:
             out_w = np.ceil(float(self.input_w + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
             out_h = np.ceil(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
-        self.out=Blob([self.batch_size,out_w,out_h,num_out],self)
+        self.out=Blob([self.batch_size,num_out,out_w,out_h],self)
 
 class Conv(Sliding):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,

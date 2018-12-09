@@ -18,14 +18,30 @@ class Blob():
 
     @property
     def w(self):
-        return self.shape[2]
+        if self.dim==4:
+            return self.shape[3]
+        elif self.dim==3:
+            return self.shape[2]
+        else:
+            raise NotImplementedError('Blob attribute w is only supported for 2D feature map')
+
     @property
     def h(self):
-        return self.shape[1]
+        if self.dim==4:
+            return self.shape[2]
+        elif self.dim==3:
+            return self.shape[1]
+        else:
+            raise NotImplementedError('Blob attribute h is only supported for 2D feature map')
 
     @property
     def c(self):
-        return self.shape[3]
+        if self.dim==4:
+            return self.shape[1]
+        elif self.dim==3:
+            return self.shape[0]
+        else:
+            raise NotImplementedError('Blob attribute h is only supported for 2D feature map')
 
     @property
     def batch_size(self):

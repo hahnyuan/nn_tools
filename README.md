@@ -70,7 +70,7 @@ NOTICE: The transfer output will be somewhat different with the original model, 
 - Supporting layers types: conv2d, linear, max_pool2d, avg_pool2d, dropout,
  relu, prelu, threshold(only value=0),softmax, batch_norm
 - Supporting operations: torch.split, torch.max, torch.cat
-- Supporting tensor Variable operations: var.view, + (add), += (iadd), -(sub), -=(isub)
+- Supporting tensor Variable operations: var.view, var.mean, + (add), += (iadd), -(sub), -=(isub)
  \* (mul) *= (imul)
 
 The supported above can transfer many kinds of nets, 
