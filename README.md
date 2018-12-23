@@ -67,8 +67,9 @@ For example `python mxnet_analyser.py example/mobilenet_mxnet_symbol.py get_symb
 The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 0.4.0) of pytorch.
 NOTICE: The transfer output will be somewhat different with the original model, caused by implementation difference.
 
-- Supporting layers types: conv2d, linear, max_pool2d, avg_pool2d, dropout,
- relu, prelu, threshold(only value=0),softmax, batch_norm
+- Supporting layers types: conv2d, transpose_conv2d, linear, max_pool2d, avg_pool2d, dropout,
+ relu, prelu, threshold(only value=0),softmax, batch_norm, instance_norm
+
 - Supporting operations: torch.split, torch.max, torch.cat
 - Supporting tensor Variable operations: var.view, var.mean, + (add), += (iadd), -(sub), -=(isub)
  \* (mul) *= (imul)
