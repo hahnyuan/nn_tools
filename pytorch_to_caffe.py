@@ -57,7 +57,7 @@ class TransLog(object):
         if name in self.layers:
             return self.layers[name]
         if self.pytorch_layer_name:
-            pytorch_name=self.pytorch_layer_name
+            pytorch_name=self.pytorch_layer_name.replace('.','_')
             name=pytorch_name
             cnt=1
             while name in self.layers:
@@ -106,7 +106,7 @@ def _conv2d(raw,input, weight, bias=None, stride=1, padding=0, dilation=1, group
     layer=caffe_net.Layer_param(name=name, type='Convolution',
                                 bottom=[log.blobs(input)], top=[log.blobs(x)])
     layer.conv_param(x.size()[1],weight.size()[2:],stride=_pair(stride),
-                     pad=_pair(padding),dilation=_pair(dilation),bias_term=bias is not None)
+                     pad=_pair(padding),dilation=_pair(dilation),bias_term=bias is not None,groups=groups)
     if bias is not None:
         layer.add_data(weight.cpu().data.numpy(),bias.cpu().data.numpy())
     else:
@@ -137,7 +137,7 @@ def _linear(raw,input, weight, bias=None):
     top_blobs=log.add_blobs([x],name='fc_blob')
     layer=caffe_net.Layer_param(name=layer_name,type='InnerProduct',
                                 bottom=[log.blobs(input)],top=top_blobs)
-    layer.fc_param(x.size()[1])
+    layer.fc_param(x.size()[1],has_bias=bias is not None)
     if bias is not None:
         layer.add_data(weight.cpu().data.numpy(),bias.cpu().data.numpy())
     else:

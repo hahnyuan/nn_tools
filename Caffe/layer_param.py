@@ -32,13 +32,15 @@ class Layer_param():
         self.bottom=self.param.bottom
         self.bottom.extend(bottom)
 
-    def fc_param(self, num_output, weight_filler='xavier', bias_filler='constant'):
+    def fc_param(self, num_output, weight_filler='xavier', bias_filler='constant',has_bias=True):
         if self.type != 'InnerProduct':
             raise TypeError('the layer type must be InnerProduct if you want set fc param')
         fc_param = pb.InnerProductParameter()
         fc_param.num_output = num_output
         fc_param.weight_filler.type = weight_filler
-        fc_param.bias_filler.type = bias_filler
+        fc_param.bias_term = has_bias
+        if has_bias:
+            fc_param.bias_filler.type = bias_filler
         self.param.inner_product_param.CopyFrom(fc_param)
 
     def conv_param(self, num_output, kernel_size, stride=(1), pad=(0,),
