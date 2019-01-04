@@ -24,7 +24,7 @@ def _analyse(module,raw_input):
     if isinstance(module,nn.Conv2d):
         out=Conv(input[0],module.kernel_size,module.out_channels,
                  module.stride,module.padding,group_size=module.groups,name=name)
-    if isinstance(module,nn.ConvTranspose2d):
+    elif isinstance(module,nn.ConvTranspose2d):
         out=Conv(input[0],module.kernel_size,module.out_channels,
                  module.stride,module.padding,group_size=module.groups,name=name,transpose=True)
     elif isinstance(module,nn.BatchNorm2d):
@@ -39,6 +39,10 @@ def _analyse(module,raw_input):
                    name=name,pool_type='avg')
     elif isinstance(module,nn.ReLU):
         out = Activation(input[0],'relu',name=name)
+    elif isinstance(module,nn.Conv3d):
+        out=Conv(input[0],module.kernel_size,module.out_channels,
+                 module.stride,module.padding,group_size=module.groups,name=name)
+
     if out:
         tracked_layers.append(out)
     else:

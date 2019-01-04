@@ -24,7 +24,7 @@ For example `python pytorch_analyser.py tmp/pytorch_analysis_test.py ResNet218 1
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument('path',help='python file location',type=str)
+    parser.add_argument('path',help='python file location, recommend absolute path',type=str)
     parser.add_argument('name',help='the class name or instance name in your python file',type=str)
     parser.add_argument('shape',help='input shape of the network(split by comma `,`), image shape should be: batch,c,h,w',type=str)
     parser.add_argument('--out',help='path to save the csv file',default='/tmp/pytorch_analyse.csv',type=str)
@@ -34,6 +34,8 @@ if __name__=="__main__":
     path,filename=os.path.split(args.path)
     filename=os.path.splitext(filename)[0]
     sys.path.insert(0,path)
+    print(path)
+    print('from %s import %s as Net'%(filename,args.name))
     exec('from %s import %s as Net'%(filename,args.name))
     if isinstance(Net, nn.Module):
         net=Net
