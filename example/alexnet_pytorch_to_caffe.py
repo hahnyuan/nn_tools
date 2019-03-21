@@ -8,6 +8,7 @@ import pytorch_to_caffe
 if __name__=='__main__':
     name='alexnet'
     net=alexnet(True)
+    net.eval()
     input=Variable(torch.ones([1,3,226,226]))
     pytorch_to_caffe.trans_net(net,input,name)
     pytorch_to_caffe.save_prototxt('{}.prototxt'.format(name))

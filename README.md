@@ -82,6 +82,7 @@ The supported layers concluded the most popular layers and operations.
 
 Example: please see file `example/alexnet_pytorch_to_caffe.py`. Just Run `python3 example/alexnet_pytorch_to_caffe.py`
 
+Note: You need `net.eval()` before converting the pytorch networks.
 
 # Some common functions
 
