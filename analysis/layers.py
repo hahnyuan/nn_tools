@@ -120,6 +120,8 @@ class Sliding(Base):
 
         if type(kernel_size) == int:
             self.kernel_size = [kernel_size] * conv_dims
+        elif len(kernel_size)==1:
+            self.kernel_size = [kernel_size[0] for i in range(conv_dims)]
         else:
             assert len(kernel_size)==conv_dims
             self.kernel_size = [i for i in kernel_size]
@@ -171,7 +173,7 @@ class Sliding(Base):
         #     out_w = (self.input_w - 1) * self.stride[0] - 2 * self.pad[0] + self.kernel_size[0]
         #     out_h = (self.input_h - 1) * self.stride[1] - 2 * self.pad[1] + self.kernel_size[1]
 
-        self.out = Blob([self.batch_size, num_out, *outs], self)
+        self.out = Blob([self.batch_size, num_out]+outs, self)
 
 class Conv(Sliding):
     def __init__(self,input,kernel_size,num_out,stride=1,pad=0,

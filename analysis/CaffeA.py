@@ -10,7 +10,10 @@ def profiling(net, input=None):
         blob_dict = OrderedDict(input)
         not_ref = [input[k] for k in input]
     else:
-        blob_dict = OrderedDict({'data': input})
+        input_name='data'
+        if hasattr(net.net,'input'):
+            input_name=net.net.input[0]
+        blob_dict = OrderedDict({input_name: input})
         not_ref=[input]
     for i, layer in enumerate(net.net.layer):
         out = None
