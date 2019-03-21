@@ -91,6 +91,10 @@ class Layer_param():
             bn_param.eps = eps
         self.param.batch_norm_param.CopyFrom(bn_param)
 
+    def slice_param(self,axis,slice_points):
+        param=pb.SliceParameter(axis=axis,slice_point=slice_points)
+        self.param.slice_param.CopyFrom(param)
+
     def add_data(self,*args):
         """Args are data numpy array
         """

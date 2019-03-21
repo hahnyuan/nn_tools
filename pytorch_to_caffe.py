@@ -22,7 +22,7 @@ Please MUTE the inplace operations to avoid not find in graph
 
 
 NET_INITTED=False
-
+WARNING_STRINGS=''
 
 class Blob_LOG():
     def __init__(self):
@@ -174,10 +174,28 @@ def _pool(type,raw,input,x,kernel_size,stride,padding,ceil_mode):
         owidth = (input.size()[3] - _pair(kernel_size)[1] + 2 * _pair(padding)[1]) % (_pair(stride)[1])
         if oheight!=0 or owidth!=0:
             caffe_out=raw(input, kernel_size, stride, padding, ceil_mode=True)
-            print("WARNING: the output shape miss match at {}: "
-                  "input {} output---Pytorch:{}---Caffe:{}\n"
-                  "This is caused by the different implementation that ceil mode in caffe and the floor mode in pytorch.\n"
-                  "You can add the clip layer in caffe prototxt manually if shape mismatch error is caused in caffe. ".format(layer_name,input.size(),x.size(),caffe_out.size()))
+            warn="WARN: the output shape miss match at {}: " \
+                  "input {} output---Pytorch:{}---Caffe:{}\n" \
+                  "This is caused by the different implementation that ceil mode in caffe and the floor mode in pytorch" \
+                 ".\n".format(layer_name,input.size(),x.size(),caffe_out.size())+ \
+                "WARN: Adding the clip layer `{}` `{}` in caffe prototxt to solve the shape mismatch error in caffe. " \
+                "You can remove them manually if you don't need them.\n".format(layer_name + '_slice1',layer_name + '_slice2')
+            print(warn)
+            global WARNING_STRINGS
+            WARNING_STRINGS+=warn
+            top_name=top_blobs[0]
+            tmp1_name=top_name+'_tmp1'
+            drop1_name=top_name+'_drop1'
+            tmp2_name=top_name+'_tmp2'
+            drop2_name=top_name+'_drop2'
+            log.cnet.net.layer[-1].top[0]=tmp1_name
+
+            slice1_layer=caffe_net.Layer_param(name=layer_name+'_slice1',type='Slice',bottom=[tmp1_name],top=[tmp2_name,drop1_name])
+            slice1_layer.slice_param(-1,[x.size()[-1]])
+            log.cnet.add_layer(slice1_layer)
+            slice2_layer = caffe_net.Layer_param(name=layer_name + '_slice2', type='Slice', bottom=[tmp2_name], top=top_blobs+[drop2_name])
+            slice2_layer.slice_param(-2, [x.size()[-2]])
+            log.cnet.add_layer(slice2_layer)
 
 def _max_pool2d(raw,input, kernel_size, stride=None, padding=0, dilation=1,
                ceil_mode=False, return_indices=False):
@@ -579,6 +597,7 @@ def trans_net(net,input_var,name='TransferedPytorchModel'):
         layer_names[layer]=name
     out = net.forward(input_var)
     print('Transform Completed')
+    print(WARNING_STRINGS)
 
 def save_prototxt(save_name):
     log.cnet.save_prototxt(save_name)
