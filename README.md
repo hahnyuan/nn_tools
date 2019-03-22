@@ -72,7 +72,7 @@ For example `python mxnet_analyser.py example/mobilenet_mxnet_symbol.py get_symb
 
 ## Pytorch to Caffe
 
-The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 0.4.0) of pytorch.
+The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 1.0) of pytorch.
 NOTICE: The transfer output will be somewhat different with the original model, caused by implementation difference.
 
 - Supporting layers types: conv2d, transpose_conv2d, linear, max_pool2d, avg_pool2d, dropout,
@@ -81,10 +81,11 @@ NOTICE: The transfer output will be somewhat different with the original model, 
 - Supporting operations: torch.split, torch.max, torch.cat
 - Supporting tensor Variable operations: var.view, var.mean, + (add), += (iadd), -(sub), -=(isub)
  \* (mul) *= (imul)
-- Supporting testify whether your transformed Caffe model is workable. See `tmp/testify_pytorch_to_caffe.py`.
+- The not supporting operations will transferred to a Python layer in Caffe. You can implemented it by yourself.
+- Testify whether your transformed Caffe model is workable. See `tmp/testify_pytorch_to_caffe.py`.
 
 The supported above can transfer many kinds of nets, 
-such as AlexNet(tested), VGG(tested), ResNet(tested), Inception_V3(tested).
+such as AlexNet(tested), VGG(tested), ResNet(tested), Inception_V3(tested), SqueezeNet(tested).
 
 The supported layers concluded the most popular layers and operations.
  The other layer types will be added soon, you can ask me to add them in issues.
