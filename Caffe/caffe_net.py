@@ -130,7 +130,7 @@ class Caffemodel(_Net):
     def set_layer_data(self,layer_name,datas):
         # datas is normally a list of [weights,bias]
         layer=self.layer(layer_name)
-        for blob,data in zip(layer.blobs,datas):
+        for blob,data in zip(layer.blobs, datas):
             blob.data[:]=data.flatten()
             pass
 

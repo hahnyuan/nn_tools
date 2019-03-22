@@ -4,12 +4,13 @@
  
  The nn_tools is released under the MIT License (refer to the LICENSE file for details).
 
+
+- [Converter](#Converter)
+  - [Pytorch->Caffe](#Pytorch-to-Caffe)
 - [Analyser](#Analyser)
   - [Caffe Analyser](##Caffe-Analyser)
   - [Pytorch Analyser](##Pytorch-Analyser)
   - [Mxnet Analyser](##Mxnet-Analyser)
-- [Converter](#Converter)
-  - [Pytorch->Caffe](#Pytorch-to-Caffe)
 - [Some useful functions](#Some-useful-functions)
 
 ### features
@@ -23,6 +24,56 @@ see [nn_tools.Caffe](https://github.com/hahnyuan/nn_tools/tree/master/Caffe).
 
 - Python2.7 or Python3.x
 - Each functions in this tools requires corresponding neural network python package (tensorflow pytorch and so on).
+
+# Converter
+
+## Pytorch to Caffe
+
+The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 1.0) of pytorch.
+NOTICE: The transfer output will be somewhat different with the original model, caused by implementation difference.
+
+- Supporting layers types: conv2d, transpose_conv2d, linear, max_pool2d, avg_pool2d, dropout,
+ relu, prelu, threshold(only value=0),softmax, batch_norm, instance_norm
+
+- Supporting operations: torch.split, torch.max, torch.cat
+- Supporting tensor Variable operations: var.view, var.mean, var.sum, + (add), += (iadd), -(sub), -=(isub)
+ \* (mul) *= (imul) / (div)
+- The not supporting operations will transferred to a Python layer in Caffe. You can implemented it by yourself.
+- Testify whether your transformed Caffe model is workable. See `tmp/testify_pytorch_to_caffe.py`.
+
+The supported above can transfer many kinds of nets.
+The tested network:
+- AlexNet(tested)
+- VGG(tested)
+- ResNet(tested)
+- Inception_V3(tested)
+- SqueezeNet(tested)
+
+The supported layers concluded the most popular layers and operations.
+ The other layer types will be added soon, you can ask me to add them in issues.
+
+Note: You need `net.eval()` before converting the pytorch networks.
+
+Example: please see file `example/<alexnet/resnet/inception_v3>_pytorch_to_caffe.py`.
+
+```
+$python3 example/alexnet_pytorch_to_caffe.py
+
+Add blob         blob0         : torch.Size([1, 3, 226, 226])
+Processing Layer: features.0
+Add blob       conv_blob1      : torch.Size([1, 64, 55, 55])
+Processing Layer: features.1
+ ...
+Transform Completed
+
+$python3 example/testify_pytorch_to_caffe_example.py
+TEST layer features_0: PASS
+TEST layer features_1: PASS
+...
+TEST output
+TEST output: PASS
+```
+
 
 # Analyser
 
@@ -68,31 +119,6 @@ batch_size, channel, image_height, image_width.
 
 For example `python mxnet_analyser.py example/mobilenet_mxnet_symbol.py get_symbol 1,3,224,224`
 
-# Converter
-
-## Pytorch to Caffe
-
-The new version of pytorch_to_caffe supporting the newest version(from 0.2.0 to 1.0) of pytorch.
-NOTICE: The transfer output will be somewhat different with the original model, caused by implementation difference.
-
-- Supporting layers types: conv2d, transpose_conv2d, linear, max_pool2d, avg_pool2d, dropout,
- relu, prelu, threshold(only value=0),softmax, batch_norm, instance_norm
-
-- Supporting operations: torch.split, torch.max, torch.cat
-- Supporting tensor Variable operations: var.view, var.mean, + (add), += (iadd), -(sub), -=(isub)
- \* (mul) *= (imul)
-- The not supporting operations will transferred to a Python layer in Caffe. You can implemented it by yourself.
-- Testify whether your transformed Caffe model is workable. See `tmp/testify_pytorch_to_caffe.py`.
-
-The supported above can transfer many kinds of nets, 
-such as AlexNet(tested), VGG(tested), ResNet(tested), Inception_V3(tested), SqueezeNet(tested).
-
-The supported layers concluded the most popular layers and operations.
- The other layer types will be added soon, you can ask me to add them in issues.
-
-Example: please see file `example/alexnet_pytorch_to_caffe.py`. Just Run `python3 example/alexnet_pytorch_to_caffe.py`
-
-Note: You need `net.eval()` before converting the pytorch networks.
 
 # Some useful functions
 
