@@ -4,6 +4,14 @@
  
  The nn_tools is released under the MIT License (refer to the LICENSE file for details).
 
+- [Analyser](#Analyser)
+  - [Caffe Analyser](##Caffe-Analyser)
+  - [Pytorch Analyser](##Pytorch-Analyser)
+  - [Mxnet Analyser](##Mxnet-Analyser)
+- [Converter](#Converter)
+  - [Pytorch->Caffe](#Pytorch-to-Caffe)
+- [Some useful functions][#Some-useful-functions]
+
 ### features
 
 1. Converting a model between different frameworks.
@@ -21,7 +29,7 @@ see [nn_tools.Caffe](https://github.com/hahnyuan/nn_tools/tree/master/Caffe).
 The analyser can analyse all the model layers' [input_size, output_size, multiplication ops, addition ops, 
 comparation ops, tot ops, weight size and so on] given a input tensor size, which is convenint for model deploy analyse.
 
-## Caffe
+## Caffe Analyser
 Before you analyse your network, [Netscope](http://ethereon.github.io/netscope/#/editor)
 is recommended to visiualize your network.
 
@@ -33,7 +41,7 @@ batch_size, channel, image_height, image_width.
 
 For example `python caffe_analyser.py resnet_18_deploy.prototxt analys_result.csv 1,3,224,224`
 
-## Pytorch
+## Pytorch Analyser
 Supporting analyse the inheritors of torch.nn.Moudule class.
 
 Command：`pytorch_analyser.py [-h] [--out OUT] [--class_args ARGS] path name shape`
@@ -47,7 +55,7 @@ batch_size, channel, image_height, image_width.
 For example `python pytorch_analyser.py example/resnet_pytorch_analysis_example.py resnet18 1,3,224,224`
 
 
-## Mxnet
+## Mxnet Analyser
 Supporting analyse the inheritors of mxnet.sym.
 
 Command：`mxnet_analyser.py [-h] [--out OUT] [--func_args ARGS] [--func_kwargs FUNC_KWARGS] path name shape`
@@ -73,6 +81,7 @@ NOTICE: The transfer output will be somewhat different with the original model, 
 - Supporting operations: torch.split, torch.max, torch.cat
 - Supporting tensor Variable operations: var.view, var.mean, + (add), += (iadd), -(sub), -=(isub)
  \* (mul) *= (imul)
+- Supporting testify whether your transformed Caffe model is workable. See `tmp/testify_pytorch_to_caffe.py`.
 
 The supported above can transfer many kinds of nets, 
 such as AlexNet(tested), VGG(tested), ResNet(tested), Inception_V3(tested).
@@ -84,7 +93,7 @@ Example: please see file `example/alexnet_pytorch_to_caffe.py`. Just Run `python
 
 Note: You need `net.eval()` before converting the pytorch networks.
 
-# Some common functions
+# Some useful functions
 
 ## funcs.py
 

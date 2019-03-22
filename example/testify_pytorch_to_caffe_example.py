@@ -64,7 +64,7 @@ def forward_caffe(net,data):
     output_name=net.outputs[0]
     return blobs,rst[output_name]
 
-def test(net_caffe,net_torch,data_np,data_torch):
+def test(net_caffe,net_torch,data_np,data_torch,args):
     blobs_caffe, rst_caffe = forward_caffe(net_caffe, data_np)
     blobs_torch, rst_torch = forward_torch(net_torch, data_torch)
     # test the output of every layer
@@ -105,7 +105,7 @@ if __name__=='__main__':
             raise ("Please run alexnet_pytorch_to_caffe.py first")
         shape=get_input_size(net_caffe)
         data_np,data_torch=generate_random(shape,args.gpu)
-        test(net_caffe,net_torch,data_np,data_torch)
+        test(net_caffe,net_torch,data_np,data_torch,args)
 
     elif args.model=='resnet18':
         # ResNet example
@@ -116,8 +116,7 @@ if __name__=='__main__':
         net_caffe = caffe.Net('resnet18.prototxt', 'resnet18.caffemodel', caffe.TEST)
         shape = get_input_size(net_caffe)
         data_np, data_torch = generate_random(shape, args.gpu)
-        test(net_caffe,net_torch,data_np,data_torch)
+        test(net_caffe,net_torch,data_np,data_torch,args)
     else:
         raise NotImplementedError()
 
-    2==2

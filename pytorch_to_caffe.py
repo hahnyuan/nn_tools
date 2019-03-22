@@ -23,6 +23,7 @@ Please MUTE the inplace operations to avoid not find in graph
 
 NET_INITTED=False
 WARNING_STRINGS=''
+RP_TRANSFERRING_FLAG=False  # this flag prevents transferring Rp function in Rp function.
 
 class Blob_LOG():
     def __init__(self):
@@ -128,6 +129,37 @@ def _conv_transpose2d(raw,input, weight, bias=None, stride=1, padding=0, output_
     else:
         layer.param.convolution_param.bias_term=False
         layer.add_data(weight.cpu().data.numpy())
+    log.cnet.add_layer(layer)
+    return x
+
+def _interpolate(raw,input, size=None, scale_factor=None, mode='nearest', align_corners=None):
+    raise NotImplementedError("The interpolate upsampling in pytorch cannot be implimented in caffe by This function, I'll try later. ")
+
+    if mode=='bilinear':
+        x=raw(input, size, scale_factor, mode, align_corners)
+    else:
+        raise NotImplementedError("The interpolate upsampling only support bilinear in Caffe")
+    name=log.add_layer(name='interpolate')
+    log.add_blobs([x],name='interpolate_blob')
+    layer=caffe_net.Layer_param(name=name, type='Deconvolution',
+                                bottom=[log.blobs(input)], top=[log.blobs(x)])
+
+    def bilinear_weight(shape):
+        weight = np.zeros(np.prod(shape), dtype='float32')
+        f = np.ceil(shape[3] / 2.)
+        c = (2 * f - 1 - f % 2) / (2. * f)
+        for i in range(np.prod(shape)):
+            x = i % shape[3]
+            y = (i / shape[3]) % shape[2]
+            weight[i] = (1 - abs(x / f - c)) * (1 - abs(y / f - c))
+        return weight.reshape(shape)
+    kernel_size=2*scale_factor-scale_factor%2
+    stride=scale_factor
+    pad=int(np.ceil((scale_factor-1)/2))
+    channels=x.size(1)
+    weight=bilinear_weight([channels,1,kernel_size,kernel_size])
+    layer.conv_param(channels,kernel_size,stride=stride,pad=pad,bias_term=False,groups=channels)
+    layer.add_data(weight)
     log.cnet.add_layer(layer)
     return x
 
@@ -394,6 +426,35 @@ def _instance_norm(raw, input, running_mean=None, running_var=None, weight=None,
         log.cnet.add_layer(layer2)
     return x
 
+
+def op_placeholder(raw, *args, **kwargs):
+    output = raw(*args, **kwargs)
+    bottom_blobs=[]
+    warning_string="======\nCRITICAL WARN: layer {} cannot be transfer, " \
+          "because it cannot be implemented with original version of Caffe or it just is not implemented in nn_tools! \n" \
+          "Nn_tools place a placeholder with Python type layer in Caffe. \n======".format(log.pytorch_layer_name)
+    # print(warning_string)
+    global WARNING_STRINGS
+    WARNING_STRINGS+=warning_string
+    for arg in args:
+        if isinstance(arg,torch.Tensor):
+            try:
+                bottom_blobs.append(log.blobs(arg))
+            except:
+                print("WARN: at op_placehoder, tensor {} is not in the graph".format(arg))
+    output_blobs=[]
+    if isinstance(output,tuple):
+        for out in output:
+            output_blobs.append(out)
+    else:
+        output_blobs.append(output)
+    top_blobs = log.add_blobs(output_blobs, name='op_placehoder_blob')
+    layer_name = log.add_layer(name='op_placehoder')
+    layer = caffe_net.Layer_param(name=layer_name, type='Python',
+                                   bottom=bottom_blobs, top=top_blobs)
+    log.cnet.add_layer(layer)
+    return output
+
 # ----- for Variable operations --------
 
 def _view(input, *args):
@@ -507,6 +568,8 @@ def _imul(input, *args):
     log.cnet.add_layer(layer)
     return x
 
+
+
 class Rp(object):
     def __init__(self,raw,replace,**kwargs):
         # replace the raw function to replace function
@@ -514,6 +577,10 @@ class Rp(object):
         self.raw=raw
 
     def __call__(self,*args,**kwargs):
+        global RP_TRANSFERRING_FLAG
+        if RP_TRANSFERRING_FLAG:
+            return self.raw(*args,**kwargs)
+        RP_TRANSFERRING_FLAG=True
         if not NET_INITTED:
             return self.raw(*args,**kwargs)
         for stack in traceback.walk_stack(None):
@@ -524,23 +591,39 @@ class Rp(object):
                     print(layer_names[layer])
                     break
         out=self.obj(self.raw,*args,**kwargs)
+        RP_TRANSFERRING_FLAG=False
         # if isinstance(out,Variable):
         #     out=[out]
         return out
 
-F.conv2d=Rp(F.conv2d,_conv2d)
-F.linear=Rp(F.linear,_linear)
-F.relu=Rp(F.relu,_relu)
-F.leaky_relu=Rp(F.leaky_relu,_leaky_relu)
-F.max_pool2d=Rp(F.max_pool2d,_max_pool2d)
-F.avg_pool2d=Rp(F.avg_pool2d,_avg_pool2d)
-F.dropout=Rp(F.dropout,_dropout)
-F.threshold=Rp(F.threshold,_threshold)
-F.prelu=Rp(F.prelu,_prelu)
-F.batch_norm=Rp(F.batch_norm,_batch_norm)
-F.instance_norm=Rp(F.instance_norm,_instance_norm)
-F.softmax=Rp(F.softmax,_softmax)
-F.conv_transpose2d=Rp(F.conv_transpose2d,_conv_transpose2d)
+F_supported=[
+    'conv2d',
+    'linear',
+    'relu',
+    'leaky_relu',
+    'max_pool2d',
+    'avg_pool2d',
+    'dropout',
+    'threshold',
+    'prelu',
+    'batch_norm',
+    'instance_norm',
+    'softmax',
+    'conv_transpose2d',
+    #'interpolate',  # TODO, interpolate function cannot transfer correctly now
+
+]
+
+for op_name in F.__dict__:
+    if op_name in F_supported:
+        raw_func=getattr(F, op_name)
+        transfer_func=globals()['_'+op_name]
+        op_wrapper=Rp(raw_func,transfer_func)
+        setattr(F, op_name, op_wrapper)
+    else:
+        if op_name[0]=='_' or op_name in ['division','warnings','math','torch','utils','vision','Col2Im','Im2Col','grad','weak_script','List']:
+            continue
+        setattr(F,op_name,Rp(getattr(F,op_name),op_placeholder))
 
 torch.split=Rp(torch.split,_split)
 torch.max=Rp(torch.max,_max)
