@@ -65,7 +65,13 @@ Add blob       conv_blob1      : torch.Size([1, 64, 55, 55])
 Processing Layer: features.1
  ...
 Transform Completed
+```
 
+If you have compiled Pycaffe and set the pycaffe path.
+You can run testify_pytorch_to_caffe to test whether the output of
+every Caffe layer is the same as the output in Pytorch.
+
+```
 $python3 example/testify_pytorch_to_caffe_example.py
 TEST layer features_0: PASS
 TEST layer features_1: PASS

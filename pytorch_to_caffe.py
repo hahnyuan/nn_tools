@@ -678,9 +678,14 @@ def ___add__(input, *args):
         return x
     layer_name = log.add_layer(name='add')
     top_blobs = log.add_blobs([x], name='add_blob')
-    layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
-                                  bottom=[log.get_blobs(input), log.get_blobs(args[0])], top=top_blobs)
-    layer.param.eltwise_param.operation = 1 # sum is 1
+    if not isinstance(args[0],torch.Tensor):
+        layer = caffe_net.Layer_param(name=layer_name, type='Power',
+                                      bottom=[log.get_blobs(input)], top=top_blobs)
+        layer.param.power_param.shift = args[0]
+    else:
+        layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
+                                      bottom=[log.get_blobs(input), log.get_blobs(args[0])], top=top_blobs)
+        layer.param.eltwise_param.operation = 1 # sum is 1
     log.cnet.add_layer(layer)
     return x
 
@@ -689,20 +694,16 @@ def ___iadd__(input, *args):
     if not NET_INITTED:
         return x
     x=x.clone()
-    if not isinstance(args[0],torch.Tensor):
-        layer_name = log.add_layer(name='add')
-        top_blobs = log.add_blobs([x], name='add_blob')
+    layer_name = log.add_layer(name='add')
+    top_blobs = log.add_blobs([x], name='add_blob')
+    if not isinstance(args[0], torch.Tensor):
         layer = caffe_net.Layer_param(name=layer_name, type='Power',
                                       bottom=[log.get_blobs(input)], top=top_blobs)
         layer.param.power_param.shift = args[0]
-        log.cnet.add_layer(layer)
     else:
-        layer_name = log.add_layer(name='add')
-        top_blobs = log.add_blobs([x], name='add_blob')
         layer = caffe_net.Layer_param(name=layer_name, type='Eltwise',
                                       bottom=[log.get_blobs(input), log.get_blobs(args[0])], top=top_blobs)
-        layer.param.eltwise_param.operation = 1 # sum is 1
-        log.cnet.add_layer(layer)
+        layer.param.eltwise_param.operation = 1  # sum is 1
     return x
 
 def ___sub__(input, *args):
