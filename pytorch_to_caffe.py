@@ -26,16 +26,6 @@ NET_INITTED=False
 WARNING_STRINGS=''
 RP_TRANSFERRING_FLAG=False  # this flag prevents transferring Rp function in Rp function.
 
-class Blob_LOG():
-    def __init__(self):
-        self.data={}
-    def __setitem__(self, key, value):
-        self.data[key]=value
-    def __getitem__(self, key):
-        return self.data[key]
-    def __len__(self):
-        return len(self.data)
-
 class TransLog(object):
 
     def __init__(self):
@@ -43,7 +33,7 @@ class TransLog(object):
         doing init() with inputs Variable before using it
         """
         self.layers={}
-        self._blobs=Blob_LOG()
+        self._blobs={}
         self._blobs_data=[]
         self.cnet=caffe_net.Caffemodel('')
         self.debug=False
@@ -54,6 +44,7 @@ class TransLog(object):
         :param inputs: is a list of input variables
         """
         self.add_blobs(inputs)
+
     def add_layer(self,name='layer'):
         name='noname_'+name
         if name in self.layers:
@@ -99,6 +90,11 @@ class TransLog(object):
                   "This may caused by the previous operation which produce the blob(tensor) is not implemented in nn_tools. "
                   "You can issue this at https://github.com/hahnyuan/nn_tools/issues. \n===".format(self.pytorch_layer_name))
             return None
+
+    def reuse_blob(self,old_tensor,new_tensor):
+        # for in-place operation or data-free operations such as contiguous
+        blob_name=self._blobs[id(old_tensor)]
+        self._blobs[id(new_tensor)]=blob_name
 
 log=TransLog()
 
@@ -474,11 +470,14 @@ for op_name in F.__dict__:
 
 # ----- for torch operations -----
 def torch_max(raw,*args):
+    assert NotImplementedError
     x=raw(*args)
     if len(args)==1:
         # TODO max in one tensor
         assert NotImplementedError
     else:
+        if isinstance(x,tuple):
+            x=x[0]
         bottom_blobs=[]
         for arg in args:
             bottom_blobs.append(log.get_blobs(arg))
@@ -643,6 +642,11 @@ def _sum(input, *args,**kwargs):
     layer.param.reduction_param.operation=1 # operation 1 for sum
     layer.param.reduction_param.axis=dim
     log.cnet.add_layer(layer)
+    return x
+
+def _contiguous(input,*args):
+    x=raw_tensor_magic_op['contiguous'](input,*args)
+    log.reuse_blob(input,x)
     return x
 
 def _add(input,*args):
@@ -813,6 +817,7 @@ tensor_magic_op_supported=[
     'pow',
     'sqrt',
     'sum',
+    'contiguous',
     '__add__',
     '__iadd__',
     '__sub__',

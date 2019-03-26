@@ -35,8 +35,8 @@ NOTICE: The transfer output will be somewhat different with the original model, 
 - Supporting layers types: conv2d, transpose_conv2d, linear, max_pool2d, avg_pool2d, dropout,
  relu, prelu, threshold(only value=0),softmax, batch_norm, instance_norm
 
-- Supporting operations: torch.split, torch.max, torch.cat
-- Supporting tensor Variable operations: var.view, var.mean, var.sum, + (add), += (iadd), -(sub), -=(isub)
+- Supporting operations: torch.split, torch.cat
+- Supporting tensor Variable operations: var.view, var.mean, var.sum, var.contiguous, + (add), += (iadd), -(sub), -=(isub)
  \* (mul) *= (imul) / (div)
 - The not supporting operations will transferred to a Python layer in Caffe. You can implemented it by yourself.
 - Testify whether your transformed Caffe model is workable. See `tmp/testify_pytorch_to_caffe.py`.

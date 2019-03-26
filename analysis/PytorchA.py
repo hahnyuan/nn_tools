@@ -85,6 +85,8 @@ def analyse(net, inputs):
             raise NotImplementedError("Not Support the input type {}".format(type(i)))
     net.apply(register)
     net.forward(*_inputs)
+    for _,m in net.named_modules():
+        m._forward_hooks.clear()
     return blob_dict,tracked_layers
 
 def profilling(net,input):
