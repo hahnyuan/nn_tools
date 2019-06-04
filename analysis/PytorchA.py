@@ -6,6 +6,7 @@ from torch.autograd import Variable
 from collections import OrderedDict
 from .layers import *
 from . import save_csv
+from .utils import print_by_layers
 
 tracked_layers=[]
 blob_dict=[]
@@ -14,11 +15,9 @@ layer_name_dict={}
 def _analyse(module,raw_input):
     input=[]
     for i in raw_input:
-        s = i.size()
-        # if len(s)==4:
-        #     input.append(Blob([s[0],s[2],s[3],s[1]]))
-        # else:
-        input.append(Blob(s))
+        if isinstance(i,torch.Tensor):
+            s = i.size()
+            input.append(Blob(s))
     out=None
     name=layer_name_dict[module]
     if isinstance(module,nn.Conv2d):
@@ -69,8 +68,10 @@ def analyse(net, inputs):
     """
     del tracked_layers[:]
     del blob_dict[:]
-    if inputs is not list:
+    if not isinstance(inputs,(list,tuple)):
         raw_inputs=[inputs]
+    else:
+        raw_inputs=inputs
     _inputs=[]
     for name,layer in net.named_modules():
         layer_name_dict[layer]=name
@@ -87,6 +88,7 @@ def analyse(net, inputs):
     net.forward(*_inputs)
     for _,m in net.named_modules():
         m._forward_hooks.clear()
+    print_by_layers(tracked_layers)
     return blob_dict,tracked_layers
 
 def profilling(net,input):
