@@ -789,6 +789,8 @@ def ___div__(input, *args):
         log.cnet.add_layer(layer)
     return x
 
+def ___truediv__(input, *args):return ___div__(input, *args)
+
 def ___pow__(input, *args):
     x = raw_tensor_magic_op['__pow__'](input, *args)
     if not NET_INITTED:
@@ -825,9 +827,9 @@ tensor_magic_op_supported=[
     '__mul__',
     '__imul__',
     '__div__',
+    '__truediv__',
     '__pow__',
 ]
-
 raw_tensor_magic_op={}
 if hasattr(Variable,'__add__'):
     tensor_target=Variable
