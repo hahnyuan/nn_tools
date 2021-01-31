@@ -1,9 +1,8 @@
-import nn_tools.Caffe.caffe_pb2 as pb
+from __future__ import absolute_import
+from . import caffe_pb2 as pb
 import google.protobuf.text_format as text_format
 import numpy as np
-
-
-from layer_param import Layer_param
+from .layer_param import Layer_param
 
 class _Net(object):
     def __init__(self):
@@ -38,14 +37,14 @@ class _Net(object):
             if layer.name == layer_name:
                 del self.net.layer[i]
                 return
-        raise AttributeError, "cannot found layer %s" % str(layer_name)
+        raise(AttributeError, "cannot found layer %s" % str(layer_name))
 
     def get_layer_by_name(self, layer_name):
         # get the layer by layer_name
         for layer in self.net.layer:
             if layer.name == layer_name:
                 return layer
-        raise AttributeError, "cannot found layer %s" % str(layer_name)
+        raise(AttributeError, "cannot found layer %s" % str(layer_name))
 
     def save_prototxt(self,path):
         prototxt=pb.NetParameter()
@@ -66,9 +65,26 @@ class _Net(object):
 class Prototxt(_Net):
     def __init__(self,file_name=''):
         super(Prototxt,self).__init__()
+        self.file_name=file_name
         if file_name!='':
-            f = open(file_name,'a+')
+            f = open(file_name,'r')
             text_format.Parse(f.read(), self.net)
+            pass
+
+    def init_caffemodel(self,caffe_cmd_path='caffe'):
+        """
+        :param caffe_cmd_path: The shell command of caffe, normally at <path-to-caffe>/build/tools/caffe
+        """
+        s=pb.SolverParameter()
+        s.train_net=self.file_name
+        s.max_iter=0
+        s.base_lr=1
+        s.solver_mode = pb.SolverParameter.CPU
+        s.snapshot_prefix='./nn'
+        with open('/tmp/nn_tools_solver.prototxt','w') as f:
+            f.write(str(s))
+        import os
+        os.system('%s train --solver /tmp/nn_tools_solver.prototxt'%caffe_cmd_path)
 
 class Caffemodel(_Net):
     def __init__(self, file_name=''):
@@ -112,12 +128,12 @@ class Caffemodel(_Net):
         return datas
 
     def set_layer_data(self,layer_name,datas):
-        # datas is a list of [weights,bias]
+        # datas is normally a list of [weights,bias]
         layer=self.layer(layer_name)
-        for blob,data in zip(layer.blobs,datas):
+        for blob,data in zip(layer.blobs, datas):
             blob.data[:]=data.flatten()
             pass
 
 class Net():
     def __init__(self,*args,**kwargs):
-        raise NameError,'the class Net is no longer used, please use Caffemodel or Prototxt instead'
+        raise(TypeError,'the class Net is no longer used, please use Caffemodel or Prototxt instead')

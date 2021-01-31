@@ -22,7 +22,7 @@ class Base(object):
             self.muti_input = False
         self.name=name
         self.weight_size=0
-        self.blob_size=None
+        self.activation_size=None
         self.dot=0
         self.add=0
         self.pow=0
@@ -36,11 +36,20 @@ class Base(object):
         return self.out
     def __setattr__(self, key, value):
         if key=='out' and value!=None:
-            self.blob_size=np.prod(value.data.shape)
+            if type(value) is list:
+                self.activation_size=0
+                for i in value:
+                    self.activation_size+=np.prod(i.shape)
+            else:
+                self.activation_size=np.prod(value.shape)
         return object.__setattr__(self, key,value)
     def __getattribute__(self, item):
         if item=='ops':
-            self.ops=self.pow+self.add+self.dot+self.compare
+            try:
+                self.ops=self.pow+self.add+self.dot+self.compare
+            except:
+                print("CRITICAL WARNING: Layer {} ops cannot be calculated, set to 0.".format(self.name))
+                self.ops=0
         return object.__getattribute__(self,item)
 
 class Norm(Base):
@@ -88,78 +97,116 @@ class Activation(Base):
         self.dot=self.input_size
         self.add=self.pow=self.input_size*2
 
+    def prelu(self):
+        self.compare=self.input_size
+        self.dot=self.input_size
+
 
 class Sliding(Base):
-    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False):
-        # input (w,h,c) or (batch,w,h,c)
+    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,name='sliding',ceil=False,transpose=False):
+        # input is the instance of blob.Blob with shape (c,h,w) or (batch,c,h,w)
         super(Sliding,self).__init__(input,name=name)
-        if len(self.input.shape)==3:
-            self.input_w=self.input[0]
-            self.input_h=self.input[1]
-            self.batch_size=1
-            self.in_channel =self.input[2]
-        elif len(self.input.shape)==4:
-            self.input_w = self.input[1]
-            self.input_h = self.input[2]
-            self.batch_size = self.input[0]
-            self.in_channel = self.input[3]
+        if self.input.dim==4:
+            conv_dims=2
+        elif self.input.dim==5:
+            conv_dims=3
+            self.input_t=self.input.t
         else:
-            raise ValueError('Sliding must have a input with (w,h,c) or (batch,w,h,c)')
+            raise ValueError('Sliding must have a input with 2D Map(batch,c,w,h) or 3D Map(batch,c,d,w,h)')
+        self.input_w = self.input.w
+        self.input_h = self.input.h
+        self.batch_size = self.input.batch_size
+        self.in_channel = self.input.c
 
+        if type(kernel_size) == int:
+            self.kernel_size = [kernel_size] * conv_dims
+        elif len(kernel_size)==1:
+            self.kernel_size = [kernel_size[0] for i in range(conv_dims)]
+        else:
+            assert len(kernel_size)==conv_dims
+            self.kernel_size = [i for i in kernel_size]
+        if type(stride) == int:
+            self.stride = [stride] * conv_dims
+        else:
+            self.stride = [i for i in stride]
+            if len(self.stride) == 1:
+                self.stride = [self.stride[0]] * conv_dims
+            elif len(self.stride) == 0:
+                self.stride = [1] * conv_dims
+        if type(pad) == int:
+            self.pad = [pad] * conv_dims
+        else:
+            self.pad = [i for i in pad]
+            if len(self.pad) == 1:
+                self.pad *= conv_dims
+            elif len(self.pad) == 0:
+                self.pad = [0] * conv_dims
+        self.num_out = num_out
+        self.layer_info ='kernel=%s,stride=%s,pad=%s'%('x'.join([str(_) for _ in self.kernel_size]),
+                                                       'x'.join([str(_) for _ in self.stride]),
+                                                       'x'.join([str(_) for _ in self.pad]))
+        if transpose:
+            self.layer_info += ',transpose'
+        # calc out
 
-        if type(kernel_size)==int:
-            self.kernel_size=[kernel_size,kernel_size]
-        else:
-            self.kernel_size=[i for i in kernel_size]
-            if len(self.kernel_size)==1:self.kernel_size*=2
-        if type(stride)==int:
-            self.stride=[stride,stride]
-        else:
-            self.stride=[i for i in stride]
-            if len(self.stride)==1:self.stride*=2
-            elif len(self.stride)==0:self.stride=[1,1]
-            elif len(self.stride)>2:raise AttributeError
-        if type(pad)==int:
-            self.pad=[pad,pad]
-        else:
-            self.pad=[i for i in pad]
-            if len(self.pad)==1:self.pad*=2
-            elif len(self.pad)==0:self.pad=[0,0]
-            elif len(self.pad)>2:raise AttributeError
-        self.num_out=num_out
-        self.layer_info='kernel=%dx%d,stride=%dx%d,pad=%dx%d'%(self.kernel_size[0],self.kernel_size[1],
-                                                            self.stride[0],self.stride[1],self.pad[0],self.pad[1])
-        #calc out
+        outs=[]
 
-        if not ceil:
-            out_w=np.floor(float(self.input_w +self.pad[0]*2-self.kernel_size[0])/self.stride[0])+1
-            out_h= np.floor(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
-        else:
-            out_w = np.ceil(float(self.input_w + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
-            out_h = np.ceil(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
-        self.out=Blob([self.batch_size,out_w,out_h,num_out],self)
+        for i in range(self.input.dim-2):
+            if not transpose:
+                if not ceil:
+                    outs.append(np.floor(float(self.input[2+i] + self.pad[i] * 2 - self.kernel_size[i]) / self.stride[i]) + 1)
+                else:
+                    outs.append(np.ceil(float(self.input[2+i] + self.pad[i] * 2 - self.kernel_size[i]) / self.stride[i]) + 1)
+            else:
+                # transpose
+                outs.append((self.input[2+i] - 1) * self.stride[i] - 2 * self.pad[i] + self.kernel_size[i])
+        #     if not ceil:
+        #         out_h = np.floor(float(self.input_w + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
+        #         out_w = np.floor(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
+        #         out_t = np.floor(float(self.input_t + self.pad[2] * 2 - self.kernel_size[2]) / self.stride[2]) + 1
+        #     else:
+        #         out_w = np.ceil(float(self.input_w + self.pad[0] * 2 - self.kernel_size[0]) / self.stride[0]) + 1
+        #         out_h = np.ceil(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
+        #         out_t = np.ceil(float(self.input_h + self.pad[1] * 2 - self.kernel_size[1]) / self.stride[1]) + 1
+        # else:
+        #     # transpose
+        #     out_w = (self.input_w - 1) * self.stride[0] - 2 * self.pad[0] + self.kernel_size[0]
+        #     out_h = (self.input_h - 1) * self.stride[1] - 2 * self.pad[1] + self.kernel_size[1]
+
+        self.out = Blob([self.batch_size, num_out]+outs, self)
 
 class Conv(Sliding):
-    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,activation='relu',name='conv',ceil=False):
+    def __init__(self,input,kernel_size,num_out,stride=1,pad=0,
+                 activation='relu',name='conv',ceil=False,group_size=1,transpose=False):
         if isinstance(input,Base):
             input=input()
-        Sliding.__init__(self,input,kernel_size,num_out,stride,pad,name=name,ceil=ceil)
+        Sliding.__init__(self,input,kernel_size,num_out,stride,pad,name=name,ceil=ceil,transpose=transpose)
         self.layer_info+=',num_out=%d'%(num_out)
         self.dot = np.prod(self.out.shape) * np.prod(self.kernel_size) * self.in_channel
+        self.weight_size = np.prod(self.kernel_size) * num_out * self.in_channel
+        if group_size!=1:
+            self.layer_info += ',group_size=%d' % (group_size)
+            self.dot /= group_size
+            self.weight_size /= group_size
         self.add = self.dot
-        self.weight_size=np.prod(self.kernel_size)*num_out*self.in_channel
         if activation:
             Activation(self.out,activation)
-conv=Conv
 
 class Pool(Sliding):
     def __init__(self,input,kernel_size,stride=1,pad=0,name='pool',pool_type='max',ceil=False):
+        # pool_type: 0 is max, 1 is avg/ave in Caffe
         if isinstance(input,Base):
             input=input()
-        Sliding.__init__(self,input,kernel_size,input[3],stride,pad,name=name,ceil=ceil)
+        Sliding.__init__(self,input,kernel_size,input.c,stride,pad,name=name,ceil=ceil)
         self.pool_type=pool_type
         self.layer_info+=',type=%s'%(pool_type)
-        self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
+        if pool_type in ['max',0]:
+            self.compare= np.prod(self.out.shape) * (np.prod(self.kernel_size) - 1)
+        elif pool_type in ['avg','ave',1]:
+            self.add = np.prod(self.input.shape)
+            self.dot = np.prod(self.out.shape)
+        else:
+            print("WARNING, NOT IMPLEMENT POOL TYPE %s PROFILING at %s, CONTINUE"%(pool_type,name))
 pool=Pool
 
 class InnerProduct(Base):
@@ -171,7 +218,7 @@ class InnerProduct(Base):
         self.num_out=num_out
         self.dot=self.num_out*self.input_size
         self.add=self.num_out*self.input_size
-        self.out=Blob([self.num_out],self)
+        self.out=Blob([input[0],self.num_out],self)
         self.weight_size = self.num_out * self.left_dim
         if activation:
             Activation(self.out,activation)
@@ -186,7 +233,7 @@ class Permute(Base):
 class Flatten(Base):
     def __init__(self,input, name='permute'):
         super(Flatten, self).__init__(input, name)
-        dim=[np.prod(input.data.shape)]
+        dim=[np.prod(input.shape)]
         self.out = Blob(dim, self)
 
 class Eltwise(Base):
@@ -202,6 +249,41 @@ class Eltwise(Base):
         else:
             raise AttributeError('the Eltwise layer type must be sum, max or product')
 
+class Slice(Base):
+    def __init__(self,input,slice_point,axis,name='slice'):
+        super(Slice,self).__init__(input,name,)
+        self.out=[]
+        last=0
+        for p in slice_point:
+            print(p,list(input.shape))
+            shape1=list(input.shape)
+            shape1[axis] = p-last
+            last=p
+            self.out+=[Blob(shape1)]
+        shape1 = list(input.shape)
+        print(last,shape1,input.shape[axis])
+        shape1[axis] = input.shape[axis] - last
+        self.out += [Blob(shape1)]
+
+class Reshape(Base):
+    def __init__(self,input,shape,name='reshape'):
+        super(Reshape,self).__init__(input,name)
+        shape=list(shape)
+        for i in range(len(shape)):
+            if shape[i]==0:
+                shape[i]=input.shape[i]
+        self.out=Blob(shape)
+
+
+class Concat(Base):
+    def __init__(self,inputs,axis,name='concat'):
+        super(Concat,self).__init__(inputs,name,)
+        outc=0
+        for input in inputs:
+            outc+=input[axis]
+        self.out=Blob(inputs[0].shape,self)
+        self.out.shape[axis]=outc
+
 class Scale(Base):
     def __init__(self, input, factor=None, name='scale'):
         super(Scale, self).__init__(input, name, )
@@ -210,4 +292,18 @@ class Scale(Base):
         self.dot=self.input_size
         # TODO scale analysis
 
+class Softmax(Base):
+    def __init__(self, input, factor=None, name='softmax'):
+        super(Softmax, self).__init__(input, name, )
+        self.out = input.new(self)
+        self.power=self.input_size
+        self.add=self.input_size
+        self.dot=self.input_size
+        self.layer_info="softmax"
 
+class Dropout(Base):
+    def __init__(self,input,name='dropout'):
+        if isinstance(input,Base):
+            input=input()
+        Base.__init__(self,input,name=name)
+        self.out = input.new(self)

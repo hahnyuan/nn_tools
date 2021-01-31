@@ -3,5 +3,8 @@
 output/*
 *.pt
 *.kmodel
+*.caffemodel
+*.prototxt
 tmp/*
 nohup.out
+data
